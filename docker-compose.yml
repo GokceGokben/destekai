@@ -23,6 +23,7 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
       JWT_SECRET: ${JWT_SECRET:?set in .env}
       SEED_DATA: ${SEED_DATA:-true}
+      AGENT_DB_PASSWORD: ${AGENT_DB_PASSWORD:?set in .env}
       PORT: "8080"
     ports:
       - "127.0.0.1:${ORDER_API_PORT:-8080}:8080"
@@ -35,20 +36,37 @@ services:
       timeout: 3s
       retries: 10
 
+  # Runs once on every `up`. Unchanged chunks are skipped, so restarts spend no quota.
+  policy-indexer:
+    build: ./agent-service
+    entrypoint: ["python", "-m", "app.rag.index"]
+    environment: &agent-rag-env
+      DATABASE_URL: postgres://destekai_agent:${AGENT_DB_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-gemini}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-gemini-embedding-001}
+    volumes:
+      - ./docs/policies:/policies:ro
+      - ./evals/retrieval:/evals:ro
+    depends_on:
+      # order-api applies the migrations that create policy_chunks.
+      order-api:
+        condition: service_healthy
+
   agent-service:
     build: ./agent-service
     environment:
+      <<: *agent-rag-env
       JWT_SECRET: ${JWT_SECRET:?set in .env}
       ORDER_API_URL: http://order-api:8080
-      LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
       LLM_MODEL: ${LLM_MODEL:-gemini-3.6-flash}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
     ports:
       - "127.0.0.1:${AGENT_SERVICE_PORT:-8000}:8000"
     depends_on:
-      order-api:
-        condition: service_healthy
+      policy-indexer:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/health')"]
       interval: 5s

@@ -17,8 +17,14 @@ from app.llm import build_llm_client
 from app.llm.base import LLMClient, RetryableLLMError
 from app.order_api import OrderApiClient
 from app.prompts import BUSY_REPLY, ERROR_REPLY
+from app.rag.embeddings import build_embedding_client
+from app.rag.search import PolicySearch
+from app.rag.store import PolicyStore
+from app.tools import ToolDeps
 
 logger = logging.getLogger(__name__)
+
+MIN_SECRET_LENGTH = 32
 
 
 class ChatRequest(BaseModel):
@@ -86,19 +92,29 @@ def create_app(
     settings: Settings | None = None,
     llm: LLMClient | None = None,
     order_api: OrderApiClient | None = None,
+    policy_search: PolicySearch | None = None,
 ) -> FastAPI:
     settings = settings or Settings()
+    # The indexer shares Settings but signs nothing, so this is checked here.
+    if len(settings.jwt_secret.get_secret_value()) < MIN_SECRET_LENGTH:
+        raise ValueError(f"JWT_SECRET must be at least {MIN_SECRET_LENGTH} characters")
     llm = llm or build_llm_client(settings)
     order_api = order_api or OrderApiClient(settings.order_api_url)
+    policy_search = policy_search or PolicySearch(
+        build_embedding_client(settings), PolicyStore(settings.database_url.get_secret_value())
+    )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        await policy_search.connect()
         yield
+        await policy_search.close()
         await order_api.close()
 
     app = FastAPI(title="DestekAI agent service", lifespan=lifespan)
     app.state.settings = settings
-    app.state.graph = build_graph(llm, order_api, InMemorySaver())
+    deps = ToolDeps(order_api=order_api, policy_search=policy_search)
+    app.state.graph = build_graph(llm, deps, InMemorySaver())
 
     @app.get("/health")
     async def health() -> dict[str, str]:

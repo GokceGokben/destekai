@@ -11,6 +11,7 @@ from typing import Any
 
 from app.llm.base import ToolSpec
 from app.order_api import OrderApiClient, OrderApiError
+from app.rag.search import PolicySearch, PolicySearchError
 
 ORDER_ID_PATTERN = re.compile(r"DA-[0-9]{6}")
 ORDER_ID_SCHEMA = {"type": "string", "description": "Order number, e.g. DA-100001"}
@@ -20,7 +21,13 @@ class InvalidArgument(Exception):
     pass
 
 
-ToolRunner = Callable[[OrderApiClient, str, dict[str, Any]], Awaitable[dict[str, Any]]]
+@dataclass(frozen=True)
+class ToolDeps:
+    order_api: OrderApiClient
+    policy_search: PolicySearch
+
+
+ToolRunner = Callable[[ToolDeps, str, dict[str, Any]], Awaitable[dict[str, Any]]]
 
 
 @dataclass(frozen=True)
@@ -52,29 +59,35 @@ def _with_prices(order: dict[str, Any]) -> dict[str, Any]:
     return {**order, "items": items, "total": format_try(order["total_kurus"])}
 
 
-async def _list_my_orders(api: OrderApiClient, token: str, args: dict[str, Any]) -> dict[str, Any]:
-    result = await api.list_orders(token)
+async def _list_my_orders(deps: ToolDeps, token: str, args: dict[str, Any]) -> dict[str, Any]:
+    result = await deps.order_api.list_orders(token)
     return {"orders": [_with_prices(order) for order in result["orders"]]}
 
 
-async def _get_order_status(
-    api: OrderApiClient, token: str, args: dict[str, Any]
-) -> dict[str, Any]:
-    return _with_prices(await api.get_order(token, _order_id(args)))
+async def _get_order_status(deps: ToolDeps, token: str, args: dict[str, Any]) -> dict[str, Any]:
+    return _with_prices(await deps.order_api.get_order(token, _order_id(args)))
 
 
-async def _track_shipment(api: OrderApiClient, token: str, args: dict[str, Any]) -> dict[str, Any]:
-    return await api.get_shipment(token, _order_id(args))
+async def _track_shipment(deps: ToolDeps, token: str, args: dict[str, Any]) -> dict[str, Any]:
+    return await deps.order_api.get_shipment(token, _order_id(args))
 
 
 async def _create_return_request(
-    api: OrderApiClient, token: str, args: dict[str, Any]
+    deps: ToolDeps, token: str, args: dict[str, Any]
 ) -> dict[str, Any]:
     order_id = _order_id(args)
     reason = args.get("reason")
     if not isinstance(reason, str) or not reason.strip():
         raise InvalidArgument("reason is required")
-    return await api.create_return(token, order_id, reason)
+    return await deps.order_api.create_return(token, order_id, reason)
+
+
+async def _search_policy(deps: ToolDeps, token: str, args: dict[str, Any]) -> dict[str, Any]:
+    """Policies are public, so the token is deliberately unused."""
+    query = args.get("query")
+    if not isinstance(query, str) or not query.strip():
+        raise InvalidArgument("query is required")
+    return {"results": await deps.policy_search.search(query)}
 
 
 TOOLS = {
@@ -133,6 +146,26 @@ TOOLS = {
             },
             _create_return_request,
         ),
+        Tool(
+            {
+                "name": "search_policy",
+                "description": (
+                    "Search the store's return, shipping, warranty and payment policies. "
+                    "An empty result means the policies do not cover the question."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "A short question in Turkish",
+                        },
+                    },
+                    "required": ["query"],
+                },
+            },
+            _search_policy,
+        ),
     ]
 }
 
@@ -140,15 +173,17 @@ TOOL_SPECS = [tool.spec for tool in TOOLS.values()]
 
 
 async def execute_tool(
-    api: OrderApiClient, token: str, name: str, args: dict[str, Any]
+    deps: ToolDeps, token: str, name: str, args: dict[str, Any]
 ) -> dict[str, Any]:
     """Failures come back as data, which lets the model explain them to the customer."""
     tool = TOOLS.get(name)
     if tool is None:
         return {"error": "unknown_tool", "message": f"no tool named {name}"}
     try:
-        return await tool.run(api, token, args)
+        return await tool.run(deps, token, args)
     except InvalidArgument as exc:
         return {"error": "invalid_argument", "message": str(exc)}
     except OrderApiError as exc:
         return {"error": exc.code, "message": exc.message}
+    except PolicySearchError:
+        return {"error": "policy_search_unavailable", "message": "policy search failed"}

@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from app.auth import InvalidTokenError, issue_dev_token, verify_token
 from app.config import Settings
+from app.main import create_app
 from app.tools import format_try
 from tests.conftest import SECRET
 
@@ -22,6 +23,12 @@ def test_missing_key_error_does_not_print_secrets():
 )
 def test_format_try(kurus, expected):
     assert format_try(kurus) == expected
+
+
+def test_app_refuses_a_short_jwt_secret():
+    settings = Settings(jwt_secret="short", llm_provider="ollama", embedding_provider="local")
+    with pytest.raises(ValueError, match="JWT_SECRET"):
+        create_app(settings)
 
 
 def test_verify_token_returns_customer():

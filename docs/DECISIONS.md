@@ -101,3 +101,46 @@
 - **Decision:** Default `LLM_MODEL` to `gemini-3.6-flash`.
 - **Alternatives:** `gemini-3.8-flash`, the example in the project brief.
 - **Why:** During live testing on 2026-11-01, 3.8 and 3.7 returned 504 for every request on our API key, while 3.6 answered in about two seconds and completed the full tool flow. The cause was not determined and may be temporary. The model is one environment variable, so this is easy to revisit.
+
+## 018: asyncpg for the policy index
+
+- **Decision:** Use `asyncpg` with the `pgvector` codec.
+- **Alternatives:** `psycopg`, as first planned.
+- **Why:** psycopg's async mode does not run on Windows' default event loop, which would have forced a test workaround. asyncpg also ships its own pool, so one package covers both needs.
+
+## 019: Fixed 768-dimension vectors
+
+- **Decision:** `vector(768)` with an HNSW cosine index. Gemini output is reduced to 768 dimensions.
+- **Alternatives:** Full 3072 dimensions with `halfvec`; a column per model.
+- **Why:** HNSW on `vector` stops at 2000 dimensions. `multilingual-e5-base` produces 768 natively, so switching providers needs no schema change. Each row records its model, and search filters on it, because vectors from different models are not comparable.
+
+## 020: A restricted database role for the agent service
+
+- **Decision:** The agent service and indexer connect as `destekai_agent`, which has rights only on `policy_chunks`. Its password comes from `.env` and is applied by the order API at startup.
+- **Alternatives:** Reuse the owner role; add a policy endpoint to the order API.
+- **Why:** Decision 002 relies on the order API being the only path to customer data. Sharing the owner role would have opened a second path. A test asserts that the role is refused on customer tables.
+
+## 021: Chunk by heading, with context in the text
+
+- **Decision:** Split at `##` headings, and at paragraphs above 1000 characters with one paragraph of overlap. Each chunk starts with the document and section title.
+- **Alternatives:** Fixed-size windows; semantic chunking.
+- **Why:** The policies are short and already organized by topic, so headings are the natural unit. Fixed windows would cut rules in half. The title gives a chunk meaning on its own, and the eval needs stable section names as ground truth.
+
+## 022: gemini-embedding-001 and a 0.65 similarity threshold
+
+- **Decision:** Default to `gemini-embedding-001` and drop hits below 0.65.
+- **Alternatives:** `gemini-embedding-2`; returning the top results without a threshold.
+- **Why:** `gemini-embedding-2` returned one vector for a batch of texts, so it does not fit the batch interface; `zip(strict=True)` caught this. On 26 in-scope questions, 001 gave recall@4 of 0.96 and MRR of 0.94. The weakest expected match scored 0.69, and six of seven out-of-scope questions scored at most 0.64. The threshold was tuned on this small set, not validated on a separate one.
+- **Limit:** A threshold cannot catch a related question that the documents do not answer. "Yurt dışına kargo gönderiyor musunuz?" scored 0.71, so that case depends on the system prompt, and Phase 6 has to measure it.
+
+## 023: Vector search only, for now
+
+- **Decision:** No hybrid search.
+- **Alternatives:** Combine with Postgres `turkish` full-text search.
+- **Why:** Recall was already 0.96. The single miss, "ruj", does not appear in the documents, which say "kozmetik", so keyword search would not have found it either. Hybrid search can be added if Phase 6 shows a need.
+
+## 024: One-shot indexer with content hashes
+
+- **Decision:** A `policy-indexer` compose service runs on every `up`, embeds only new or changed chunks and applies changes in one transaction. Rows from another model count as stale.
+- **Alternatives:** Index inside the agent service at startup; index by hand.
+- **Why:** `docker compose up` stays a single command, and the free tier is not spent on restarts. Keeping it separate means that the API never starts against an empty index. The cost is that a failed embedding call stops the agent service from starting, which is preferable to answering without policies.

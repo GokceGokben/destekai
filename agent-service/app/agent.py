@@ -11,9 +11,8 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.runtime import Runtime
 
 from app.llm.base import LLMClient, Message, TextDelta, ToolCall, ToolCallRequested, Usage
-from app.order_api import OrderApiClient
 from app.prompts import EMPTY_REPLY, STEP_LIMIT_REPLY, build_system_prompt
-from app.tools import TOOL_SPECS, execute_tool
+from app.tools import TOOL_SPECS, ToolDeps, execute_tool
 
 # Model calls per customer message. Bounds cost if the model keeps calling tools.
 MAX_STEPS = 6
@@ -33,7 +32,7 @@ class AgentState(TypedDict):
 
 
 def build_graph(
-    llm: LLMClient, order_api: OrderApiClient, checkpointer: BaseCheckpointSaver
+    llm: LLMClient, deps: ToolDeps, checkpointer: BaseCheckpointSaver
 ) -> CompiledStateGraph:
     async def agent(state: AgentState, runtime: Runtime[AgentContext]) -> dict:
         text = ""
@@ -70,9 +69,7 @@ def build_graph(
             runtime.stream_writer(
                 {"type": "tool_call", "data": {"name": call["name"], "args": call["args"]}}
             )
-            result = await execute_tool(
-                order_api, runtime.context.token, call["name"], call["args"]
-            )
+            result = await execute_tool(deps, runtime.context.token, call["name"], call["args"])
             runtime.stream_writer(
                 {"type": "tool_result", "data": {"name": call["name"], "result": result}}
             )

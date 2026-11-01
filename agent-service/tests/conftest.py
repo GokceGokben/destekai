@@ -42,16 +42,33 @@ class FakeLLM:
             yield event
 
 
+class FakePolicySearch:
+    def __init__(self, results: list[dict] | None = None) -> None:
+        self.results = results or []
+        self.queries: list[str] = []
+
+    async def search(self, query: str) -> list[dict]:
+        self.queries.append(query)
+        if isinstance(self.results, Exception):
+            raise self.results
+        return self.results
+
+
 class Harness:
-    def __init__(self, llm: FakeLLM) -> None:
+    def __init__(self, llm: FakeLLM, policy_search: FakePolicySearch | None = None) -> None:
         self.llm = llm
         settings = Settings(
             jwt_secret=SecretStr(SECRET),
             llm_provider="ollama",
+            embedding_provider="local",
             order_api_url=ORDER_API_URL,
-            _env_file=None,
         )
-        self.app = create_app(settings, llm=llm, order_api=OrderApiClient(ORDER_API_URL))
+        self.app = create_app(
+            settings,
+            llm=llm,
+            order_api=OrderApiClient(ORDER_API_URL),
+            policy_search=policy_search or FakePolicySearch(),
+        )
 
     async def post(self, message: str, customer: str = "CUS-1001", conversation: str = "c1"):
         token = issue_dev_token(SECRET, customer)

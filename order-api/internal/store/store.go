@@ -98,6 +98,21 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	return nil
 }
 
+// SetAgentPassword sets the login password of the agent service's database role.
+// ALTER ROLE takes no bind parameters, so format() does the quoting.
+func SetAgentPassword(ctx context.Context, pool *pgxpool.Pool, password string) error {
+	var statement string
+	err := pool.QueryRow(ctx, `SELECT format('ALTER ROLE destekai_agent PASSWORD %L', $1::text)`,
+		password).Scan(&statement)
+	if err != nil {
+		return fmt.Errorf("build agent role statement: %w", err)
+	}
+	if _, err := pool.Exec(ctx, statement); err != nil {
+		return fmt.Errorf("set agent role password: %w", err)
+	}
+	return nil
+}
+
 // Ping reports whether the database is reachable.
 func (s *Store) Ping(ctx context.Context) error {
 	return s.pool.Ping(ctx)

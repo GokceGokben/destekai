@@ -54,6 +54,11 @@ func run() error {
 	if err := store.Migrate(ctx, pool); err != nil {
 		return err
 	}
+	if password := os.Getenv("AGENT_DB_PASSWORD"); password != "" {
+		if err := store.SetAgentPassword(ctx, pool, password); err != nil {
+			return err
+		}
+	}
 	if os.Getenv("SEED_DATA") == "true" {
 		if err := seed.ApplyIfEmpty(ctx, pool); err != nil {
 			return err
