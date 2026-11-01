@@ -9,6 +9,12 @@
 *.out
 coverage.*
 
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+
 # Editors and OS
 .idea/
 .vscode/

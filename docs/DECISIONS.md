@@ -53,3 +53,51 @@
 - **Decision:** Tests run through `httptest` against a separate `destekai_test` database in the compose Postgres.
 - **Alternatives:** Mock the store; testcontainers.
 - **Why:** Ownership filters, the unique index and the concurrency guarantee live in SQL, so mocks would not test them. testcontainers would add a dependency that the existing container makes unnecessary.
+
+## 010: Own LLMClient instead of LangChain chat models
+
+- **Decision:** LangGraph runs the agent loop, while a small `LLMClient` protocol with Gemini and Ollama implementations talks to the models.
+- **Alternatives:** `langchain-google-genai` and `langchain-ollama`; LangGraph's prebuilt `create_react_agent`.
+- **Why:** The interface is about 15 lines, and provider details such as thought signatures stay visible and testable. Scripted fakes can stand in for the model, so tests use no quota. The cost is writing message conversion by hand.
+
+## 011: The session token travels in LangGraph context
+
+- **Decision:** The JWT is passed as run `context`, read only by the tool node and forwarded to the order API. Tool schemas have no identity parameters.
+- **Alternatives:** Put it in state, or in `config.configurable` as first planned.
+- **Why:** State is checkpointed and sent to the model. Configurable values can be copied into checkpoint metadata. Context is never persisted, and a test asserts that the token appears in neither the model input nor the checkpoints.
+
+## 012: The agent service verifies the JWT as well
+
+- **Decision:** `/v1/chat` verifies the token with PyJWT and builds the thread ID as `customer_id:conversation_id`.
+- **Alternatives:** Forward the token unchecked and leave authentication to the order API.
+- **Why:** Conversation memory lives in this service, so the order API cannot protect it. Without a verified customer, knowing a conversation ID would be enough to read someone's chat.
+
+## 013: In-memory conversation memory for now
+
+- **Decision:** Use LangGraph's `InMemorySaver`.
+- **Alternatives:** A Postgres checkpointer.
+- **Why:** Enough for the current phases. Memory is lost on restart, and only one instance can run. Concurrent messages in the same conversation are not serialized; the chat UI sends one at a time. Swapping the saver is a one-line change plus a dependency.
+
+## 014: Retries stop once output has started
+
+- **Decision:** `RetryingLLMClient` retries 429, 503, 504 and timeouts with exponential backoff and jitter, honors the provider's delay, and fails immediately if that delay exceeds 30 seconds or any event has already been streamed. Gemini calls time out after 30 seconds, with at most two retries, which caps a stalled request at about 95 seconds.
+- **Alternatives:** Retry the whole stream; retry 429 only, as the requirement states.
+- **Why:** A mid-stream retry would show the customer repeated text. A long provider delay usually means an exhausted daily quota, where waiting only hangs the request. 503 and 504 are included because overloaded Gemini models return them, and live testing showed a request stalling for three minutes without a timeout.
+
+## 015: Tool failures are returned to the model as data
+
+- **Decision:** `execute_tool` turns order API errors and invalid arguments into `{"error": code}` results. Order IDs are validated before they enter a URL.
+- **Alternatives:** Raise and end the run.
+- **Why:** The model can then explain "this order was not found" to the customer in Turkish. Model output is untrusted, so the ID check stops path traversal such as `../../admin`.
+
+## 016: SSE over POST
+
+- **Decision:** `POST /v1/chat` streams `token`, `tool_call`, `tool_result`, `done` and `error` events.
+- **Alternatives:** Browser `EventSource` over GET; WebSockets.
+- **Why:** `EventSource` cannot send an Authorization header, and a GET would put the message in URLs and logs. Traffic is one-way per message, so WebSockets would add connection handling without benefit. The frontend will read the stream with `fetch`.
+
+## 017: gemini-3.6-flash as the default model
+
+- **Decision:** Default `LLM_MODEL` to `gemini-3.6-flash`.
+- **Alternatives:** `gemini-3.8-flash`, the example in the project brief.
+- **Why:** During live testing on 2026-11-01, 3.8 and 3.7 returned 504 for every request on our API key, while 3.6 answered in about two seconds and completed the full tool flow. The cause was not determined and may be temporary. The model is one environment variable, so this is easy to revisit.
