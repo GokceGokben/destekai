@@ -55,7 +55,13 @@ func newServer(t *testing.T) http.Handler {
 	if err := seed.Apply(context.Background(), testPool); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
-	return NewRouter(store.New(testPool), testSecret)
+	return NewRouter(store.New(testPool), testSecret, false)
+}
+
+func newDevServer(t *testing.T) http.Handler {
+	t.Helper()
+	newServer(t)
+	return NewRouter(store.New(testPool), testSecret, true)
 }
 
 func request(t *testing.T, h http.Handler, method, path, customer, body string) *httptest.ResponseRecorder {
@@ -103,6 +109,75 @@ func countReturns(t *testing.T, orderID string) int {
 	return n
 }
 
+func TestDevLoginIsOffByDefault(t *testing.T) {
+	h := newServer(t)
+
+	rec := request(t, h, http.MethodGet, "/v1/dev/customers", "", "")
+	assertError(t, rec, http.StatusNotFound, "not_found")
+	rec = request(t, h, http.MethodPost, "/v1/dev/token", "", `{"customer_id":"CUS-1001"}`)
+	assertError(t, rec, http.StatusNotFound, "not_found")
+}
+
+func TestDevCustomersHidePhoneNumbers(t *testing.T) {
+	h := newDevServer(t)
+
+	rec := request(t, h, http.MethodGet, "/v1/dev/customers", "", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d; body = %s", rec.Code, rec.Body.String())
+	}
+	body := decode[struct {
+		Customers []store.Customer `json:"customers"`
+	}](t, rec)
+	if len(body.Customers) != 10 {
+		t.Fatalf("customers = %d, want 10", len(body.Customers))
+	}
+	first := body.Customers[0]
+	if first.ID != "CUS-1001" || first.OrderCount != 3 || first.Tier != "vip" ||
+		first.LoyaltyPoints != 1840 || first.MemberYears != 2 {
+		t.Errorf("first customer = %+v", first)
+	}
+	if text := rec.Body.String(); strings.Contains(text, "+90") {
+		t.Errorf("response leaks phone numbers: %s", text)
+	}
+}
+
+func TestDevTokenWorksOnlyForItsCustomer(t *testing.T) {
+	h := newDevServer(t)
+
+	rec := request(t, h, http.MethodPost, "/v1/dev/token", "", `{"customer_id":"CUS-1002"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d; body = %s", rec.Code, rec.Body.String())
+	}
+	body := decode[struct {
+		Token    string         `json:"token"`
+		Customer store.Customer `json:"customer"`
+	}](t, rec)
+	if body.Customer.FullName != "Mehmet Demir" {
+		t.Errorf("customer = %+v", body.Customer)
+	}
+
+	authorized := func(path string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req.Header.Set("Authorization", "Bearer "+body.Token)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+	if rec := authorized("/v1/orders/DA-100004"); rec.Code != http.StatusOK {
+		t.Errorf("own order status = %d", rec.Code)
+	}
+	assertError(t, authorized("/v1/orders/DA-100001"), http.StatusNotFound, "order_not_found")
+}
+
+func TestDevTokenRejectsBadRequests(t *testing.T) {
+	h := newDevServer(t)
+
+	rec := request(t, h, http.MethodPost, "/v1/dev/token", "", `{"customer_id":"CUS-9999"}`)
+	assertError(t, rec, http.StatusNotFound, "customer_not_found")
+	rec = request(t, h, http.MethodPost, "/v1/dev/token", "", `{"customer_id":"CUS-1001","role":"admin"}`)
+	assertError(t, rec, http.StatusBadRequest, "invalid_body")
+}
+
 func TestHealth(t *testing.T) {
 	h := newServer(t)
 	if rec := request(t, h, http.MethodGet, "/health", "", ""); rec.Code != http.StatusOK {
@@ -125,6 +200,11 @@ func TestListOrdersReturnsOnlyOwnOrdersNewestFirst(t *testing.T) {
 	for i, id := range want {
 		if orders[i].ID != id {
 			t.Errorf("orders[%d] = %s, want %s", i, orders[i].ID, id)
+		}
+		for _, item := range orders[i].Items {
+			if item.ImageKey == nil {
+				t.Errorf("%s in %s has no image key", item.ProductName, orders[i].ID)
+			}
 		}
 		if len(orders[i].Items) == 0 {
 			t.Errorf("order %s has no items", orders[i].ID)

@@ -36,19 +36,23 @@ var (
 )
 
 type OrderItem struct {
-	ProductName    string `json:"product_name"`
-	Quantity       int    `json:"quantity"`
-	UnitPriceKurus int64  `json:"unit_price_kurus"`
+	ProductName    string  `json:"product_name"`
+	Quantity       int     `json:"quantity"`
+	UnitPriceKurus int64   `json:"unit_price_kurus"`
+	ImageKey       *string `json:"image_key"`
 }
 
 type Order struct {
-	ID           string      `json:"id"`
-	Status       string      `json:"status"`
-	TotalKurus   int64       `json:"total_kurus"`
-	PlacedAt     time.Time   `json:"placed_at"`
-	DeliveredAt  *time.Time  `json:"delivered_at"`
-	ReturnStatus *string     `json:"return_status"`
-	Items        []OrderItem `json:"items"`
+	ID             string      `json:"id"`
+	Status         string      `json:"status"`
+	TotalKurus     int64       `json:"total_kurus"`
+	PlacedAt       time.Time   `json:"placed_at"`
+	DeliveredAt    *time.Time  `json:"delivered_at"`
+	ReturnID       *string     `json:"return_id"`
+	ReturnStatus   *string     `json:"return_status"`
+	Carrier        *string     `json:"carrier"`
+	TrackingNumber *string     `json:"tracking_number"`
+	Items          []OrderItem `json:"items"`
 }
 
 type ShipmentEvent struct {
@@ -73,6 +77,18 @@ type Return struct {
 	Reason    string    `json:"reason"`
 	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+// Customer is the demo login's view of a customer. It leaves out the phone number.
+type Customer struct {
+	ID            string `json:"id"`
+	FullName      string `json:"full_name"`
+	Email         string `json:"email"`
+	City          string `json:"city"`
+	Tier          string `json:"tier"`
+	LoyaltyPoints int    `json:"loyalty_points"`
+	MemberYears   int    `json:"member_years"`
+	OrderCount    int    `json:"order_count"`
 }
 
 type Store struct {
@@ -118,16 +134,43 @@ func (s *Store) Ping(ctx context.Context) error {
 	return s.pool.Ping(ctx)
 }
 
+// ListCustomers returns every customer. Only the demo login may call it.
+func (s *Store) ListCustomers(ctx context.Context) ([]Customer, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT c.id, c.full_name, c.email, c.city, c.tier, c.loyalty_points,
+			extract(year FROM age(c.member_since))::int, count(o.id)::int
+		FROM customers c
+		LEFT JOIN orders o ON o.customer_id = c.id
+		GROUP BY c.id
+		ORDER BY c.id`)
+	if err != nil {
+		return nil, fmt.Errorf("query customers: %w", err)
+	}
+	customers, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Customer, error) {
+		var c Customer
+		err := row.Scan(&c.ID, &c.FullName, &c.Email, &c.City, &c.Tier, &c.LoyaltyPoints,
+			&c.MemberYears, &c.OrderCount)
+		return c, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("scan customers: %w", err)
+	}
+	return customers, nil
+}
+
 // The join yields at most one return per order: rejected ones are excluded and
 // the partial unique index allows a single live one.
 const orderQuery = `
-	SELECT o.id, o.status, o.total_kurus, o.placed_at, o.delivered_at, r.status
+	SELECT o.id, o.status, o.total_kurus, o.placed_at, o.delivered_at, r.id::text, r.status,
+		s.carrier, s.tracking_number
 	FROM orders o
-	LEFT JOIN returns r ON r.order_id = o.id AND r.status <> 'rejected'`
+	LEFT JOIN returns r ON r.order_id = o.id AND r.status <> 'rejected'
+	LEFT JOIN shipments s ON s.order_id = o.id`
 
 func scanOrder(row pgx.CollectableRow) (Order, error) {
 	var o Order
-	err := row.Scan(&o.ID, &o.Status, &o.TotalKurus, &o.PlacedAt, &o.DeliveredAt, &o.ReturnStatus)
+	err := row.Scan(&o.ID, &o.Status, &o.TotalKurus, &o.PlacedAt, &o.DeliveredAt, &o.ReturnID,
+		&o.ReturnStatus, &o.Carrier, &o.TrackingNumber)
 	return o, err
 }
 
@@ -183,7 +226,7 @@ func (s *Store) attachItems(ctx context.Context, orders []Order) error {
 	}
 
 	rows, err := s.pool.Query(ctx, `
-		SELECT order_id, product_name, quantity, unit_price_kurus
+		SELECT order_id, product_name, quantity, unit_price_kurus, image_key
 		FROM order_items
 		WHERE order_id = ANY($1)
 		ORDER BY id`, ids)
@@ -195,7 +238,7 @@ func (s *Store) attachItems(ctx context.Context, orders []Order) error {
 	for rows.Next() {
 		var orderID string
 		var item OrderItem
-		if err := rows.Scan(&orderID, &item.ProductName, &item.Quantity, &item.UnitPriceKurus); err != nil {
+		if err := rows.Scan(&orderID, &item.ProductName, &item.Quantity, &item.UnitPriceKurus, &item.ImageKey); err != nil {
 			return fmt.Errorf("scan order item: %w", err)
 		}
 		i := indexByID[orderID]

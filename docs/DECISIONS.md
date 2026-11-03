@@ -144,3 +144,72 @@
 - **Decision:** A `policy-indexer` compose service runs on every `up`, embeds only new or changed chunks and applies changes in one transaction. Rows from another model count as stale.
 - **Alternatives:** Index inside the agent service at startup; index by hand.
 - **Why:** `docker compose up` stays a single command, and the free tier is not spent on restarts. Keeping it separate means that the API never starts against an empty index. The cost is that a failed embedding call stops the agent service from starting, which is preferable to answering without policies.
+
+## 025: The UI matches Stitch exactly, with real data in its slots
+
+- **Decision:** Port the Stitch theme and class names unchanged, with the `sohbet_2` colors for every screen. Fields the design shows are backed by real columns where that is cheap (tier, loyalty points, membership, tracking number). Facts the system cannot know, such as a courier plate, show a real value in the same slot (latest shipment event, tracking number). Controls without a backend render as designed but do nothing.
+- **Alternatives:** Simplify the design to what the backend supports, which was the first attempt and did not match the design; fill every slot with placeholder data.
+- **Why:** The owner requires a 1:1 match. Invented values would still break the rule that order facts come from tools, so the layout is exact while the content stays true. The `sohbet_1` export mixes in brown colors from another theme, so only its layout was used.
+
+## 026: A gated demo login in the order API
+
+- **Decision:** `GET /v1/dev/customers` and `POST /v1/dev/token` exist only with `DEV_LOGIN=true`. The code default is off, and compose turns it on for the demo. Customer rows leave out the phone number.
+- **Alternatives:** Hard-code tokens in the frontend; put the signing secret in the browser; issue tokens from the agent service.
+- **Why:** The order API already owns customers and token signing. The endpoint can impersonate anyone, so the routes are not registered at all when the flag is off, and a test asserts the resulting 404. The token stays in React memory, not `localStorage`, so a reload logs out; injected script has nothing stored to read.
+
+## 027: One origin through nginx
+
+- **Decision:** The browser calls `/api/agent` and `/api/order`. nginx proxies them in Docker, and Vite does the same in development. Proxy buffering is off for the agent.
+- **Alternatives:** CORS on both services.
+- **Why:** Same origin needs no CORS configuration on two services. Buffering would hold back the SSE stream and defeat token-by-token display.
+
+## 028: `useReducer` for chat state
+
+- **Decision:** One pure reducer turns SSE events into messages, cards and trace entries. Cards come from `tool_result` data, not from the model's text. Timestamps are passed in with the action.
+- **Alternatives:** Redux or Zustand; several `useState` calls.
+- **Why:** One screen owns this state, so a store library adds nothing. A pure reducer can be tested with plain event lists. Taking cards from tool results means that a card cannot show something the model made up.
+- **Limit:** Trace durations are measured in the browser between `tool_call` and `tool_result`, so they include network time. Token totals arrive with `done`, so a reply that fails midway does not count. Phase 7's Langfuse trace is the accurate source.
+
+## 029: shadcn/ui components, adopted screen by screen
+
+- **Decision:** Add shadcn/ui components to `src/components/ui`, starting with the login cards. Their color names (`card`, `muted-foreground`, `ring` and so on) point at the existing theme tokens.
+- **Alternatives:** Keep hand-written Stitch markup; switch to Mantine or Bootstrap.
+- **Why:** The hand-written screens did not feel consistent, and every prompt rebuilt elements from scratch. shadcn/ui keeps Tailwind, which the project brief requires, and copies component code into the repository, so it stays editable. `cn` extends tailwind-merge with the custom font sizes; otherwise it reads `text-label-md` as a color and drops the real color class.
+
+## 030: Warm palette, with AI elements and statuses left as they were
+
+- **Decision:** The owner's palette (milk-coffee brown, orange, cream, olive gray) replaces the Stitch blue for surfaces, text, buttons and the customer's messages. AI chat elements, including the composer and its quick replies, keep the Stitch blue through separate `ai` tokens, and status badges keep their colors. The first dark brown primary was replaced by `#8b6a4f` at the owner's request.
+- **Alternatives:** The copper theme tried before, which was reverted; one palette for everything.
+- **Why:** Requested by the owner, with a lighter background and darker text than first proposed. The palette's hex labels did not match its swatches, so the values were taken from the colors shown. Orange fails contrast as a background for white text, so it is used only for small text and highlights.
+
+## 031: No Agent trace panel in the customer UI
+
+- **Decision:** Remove the Agent trace panel, the "AI Aktif" status pills and the "E-Ticaret Asistanı v2.4" labels from the customer screens.
+- **Alternatives:** Keep the trace panel, as the project brief asks for.
+- **Why:** The owner's decision. A customer does not need tool calls, and the version label and status pill carried no real information. Tool calls still stream as SSE events and are kept in the chat state, so the admin panel or Langfuse can show them later.
+
+## 032: An orders page with the assistant in a floating window
+
+- **Decision:** The customer screen shows orders with product photos. The assistant opens from a floating button as a window on desktop and full screen on phones. The conversation state lives in the page, so closing the window keeps it.
+- **Alternatives:** The chat as the whole page, as before.
+- **Why:** Requested by the owner. It matches how stores embed support: the customer looks at orders and asks only when needed. "Asistana sor" on an order prefills its number.
+
+## 033: Product photos from Unsplash, referenced by key
+
+- **Decision:** `order_items.image_key` names each product's photo. `frontend/public/products/manifest.json` maps the key to an Unsplash URL and photographer, filled once by `scripts/fetch-product-images.mjs`. Photos load from Unsplash, and the photographer appears on hover with an Unsplash credit in the footer. Without a photo the card shows an icon.
+- **Alternatives:** Download the photos into the repository; store full URLs in the database; Wikimedia Commons; category icons only.
+- **Why:** Unsplash's API terms require hotlinking, crediting and reporting each use, which rules out copying files. The search page and unauthenticated endpoints returned 401, so a free API key is needed. Keys keep third-party URLs out of the database and let the photos change without a migration. The key reaches the agent's tool results as well, which lets chat cards show the same photos at the cost of a few tokens.
+- **Customer portraits:** `scripts/fetch-customer-photos.mjs` does the same for the ten demo customers, keyed by customer ID in `public/avatars/manifest.json`. Each fictional persona was given a look in that script; the gender-neutral name Deniz got a portrait that does not show one. Results were checked by eye, and children and faceless shots were rejected.
+
+## 034: Dark mode by overriding the same tokens
+
+- **Decision:** A `dark` class on `<html>` redefines the colour variables; components are unchanged. An inline script in `index.html` applies the saved or system theme before the first paint, and the choice is kept in `localStorage`. The pattern has a second, darker tile.
+- **Alternatives:** `dark:` variants on every element; following the system setting only.
+- **Why:** Every colour already goes through a token, so one block covers the whole UI and the light values stay exactly as the owner set them. Status badges keep their literal colours, which the owner asked to leave unchanged. The theme is a per-visitor convenience, so browser storage fits, wrapped in try/catch for blocked storage.
+
+## 035: A canvas "genie" animation for the assistant window
+
+- **Decision:** On desktop, the assistant window pours into its launcher button when it closes, like the macOS genie effect, and back out when it opens. `genie.ts` draws a snapshot of the window on a canvas in 2px strips, each as wide as a funnel that bends from the window to the button. Snapshots come from `modern-screenshot` 4.7.0 and are taken in the background once the chat has been unchanged for 400ms, so a click starts the animation at once. Mobile keeps its slide, and reduced motion turns the animation off.
+- **Alternatives:** CSS scale and opacity, which only resize the window as a whole; `clip-path`, which cut the window instead of bending it; `html-to-image`, which captures scrolled lists from the top and was no faster.
+- **Why:** The effect squeezes each row by a different amount, which CSS transforms cannot do on a live element. Taking the snapshot on click cost 0.5–1s, mostly for embedding the fonts, which made the button feel broken.
+- **Limit:** A window closed within about half a second of a change waits for a fresh snapshot. The Google Fonts links need `crossorigin` so their rules can be read for embedding.

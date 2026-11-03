@@ -19,10 +19,16 @@ services:
 
   order-api:
     build: ./order-api
+    # depends_on is ignored by `docker compose start` and Docker Desktop's Start button,
+    # so the API can come up before Postgres accepts connections. It exits then; this
+    # retries it.
+    restart: on-failure
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
       JWT_SECRET: ${JWT_SECRET:?set in .env}
       SEED_DATA: ${SEED_DATA:-true}
+      # On by default for the demo; every port is bound to 127.0.0.1.
+      DEV_LOGIN: ${DEV_LOGIN:-true}
       AGENT_DB_PASSWORD: ${AGENT_DB_PASSWORD:?set in .env}
       PORT: "8080"
     ports:
@@ -56,6 +62,7 @@ services:
 
   agent-service:
     build: ./agent-service
+    restart: on-failure
     environment:
       <<: *agent-rag-env
       JWT_SECRET: ${JWT_SECRET:?set in .env}
@@ -72,6 +79,16 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      order-api:
+        condition: service_healthy
+      agent-service:
+        condition: service_healthy
 
 volumes:
   postgres_data:

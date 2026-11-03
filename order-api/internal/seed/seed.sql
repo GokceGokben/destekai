@@ -2,17 +2,17 @@
 -- scenarios stay valid; run cmd/seed to refresh them on an existing database.
 TRUNCATE returns, shipment_events, shipments, order_items, orders, customers;
 
-INSERT INTO customers (id, full_name, email, phone, city) VALUES
-    ('CUS-1001', 'Ayşe Yılmaz',  'ayse.yilmaz@example.com',  '+90 555 000 00 01', 'İstanbul'),
-    ('CUS-1002', 'Mehmet Demir', 'mehmet.demir@example.com', '+90 555 000 00 02', 'Ankara'),
-    ('CUS-1003', 'Zeynep Kaya',  'zeynep.kaya@example.com',  '+90 555 000 00 03', 'İzmir'),
-    ('CUS-1004', 'Emre Çelik',   'emre.celik@example.com',   '+90 555 000 00 04', 'Bursa'),
-    ('CUS-1005', 'Elif Şahin',   'elif.sahin@example.com',   '+90 555 000 00 05', 'Antalya'),
-    ('CUS-1006', 'Burak Arslan', 'burak.arslan@example.com', '+90 555 000 00 06', 'Adana'),
-    ('CUS-1007', 'Selin Koç',    'selin.koc@example.com',    '+90 555 000 00 07', 'Trabzon'),
-    ('CUS-1008', 'Can Öztürk',   'can.ozturk@example.com',   '+90 555 000 00 08', 'Eskişehir'),
-    ('CUS-1009', 'Deniz Aydın',  'deniz.aydin@example.com',  '+90 555 000 00 09', 'Gaziantep'),
-    ('CUS-1010', 'Ece Polat',    'ece.polat@example.com',    '+90 555 000 00 10', 'Konya');
+INSERT INTO customers (id, full_name, email, phone, city, tier, loyalty_points, member_since) VALUES
+    ('CUS-1001', 'Ayşe Yılmaz',  'ayse.yilmaz@example.com',  '+90 555 000 00 01', 'İstanbul',  'vip',      1840, CURRENT_DATE - interval '2 years'),
+    ('CUS-1002', 'Mehmet Demir', 'mehmet.demir@example.com', '+90 555 000 00 02', 'Ankara',    'standard',  320, CURRENT_DATE - interval '1 year'),
+    ('CUS-1003', 'Zeynep Kaya',  'zeynep.kaya@example.com',  '+90 555 000 00 03', 'İzmir',     'vip',      2150, CURRENT_DATE - interval '3 years'),
+    ('CUS-1004', 'Emre Çelik',   'emre.celik@example.com',   '+90 555 000 00 04', 'Bursa',     'standard',  540, CURRENT_DATE - interval '1 year'),
+    ('CUS-1005', 'Elif Şahin',   'elif.sahin@example.com',   '+90 555 000 00 05', 'Antalya',   'new',       100, CURRENT_DATE - interval '2 months'),
+    ('CUS-1006', 'Burak Arslan', 'burak.arslan@example.com', '+90 555 000 00 06', 'Adana',     'standard',  410, CURRENT_DATE - interval '2 years'),
+    ('CUS-1007', 'Selin Koç',    'selin.koc@example.com',    '+90 555 000 00 07', 'Trabzon',   'vip',      1320, CURRENT_DATE - interval '4 years'),
+    ('CUS-1008', 'Can Öztürk',   'can.ozturk@example.com',   '+90 555 000 00 08', 'Eskişehir', 'new',       100, CURRENT_DATE - interval '1 month'),
+    ('CUS-1009', 'Deniz Aydın',  'deniz.aydin@example.com',  '+90 555 000 00 09', 'Gaziantep', 'standard',  260, CURRENT_DATE - interval '1 year'),
+    ('CUS-1010', 'Ece Polat',    'ece.polat@example.com',    '+90 555 000 00 10', 'Konya',     'standard',  690, CURRENT_DATE - interval '3 years');
 
 -- Totals start at zero and are derived from order_items below.
 INSERT INTO orders (id, customer_id, status, total_kurus, placed_at, delivered_at) VALUES
@@ -81,6 +81,26 @@ INSERT INTO order_items (order_id, product_name, quantity, unit_price_kurus) VAL
     ('DA-100028', 'Halı',                       1, 359900),
     ('DA-100029', 'Kitap Seti',                 4,  17900),
     ('DA-100030', 'Baharat Rafı',               1,  54900);
+
+-- Keys match frontend/public/products/manifest.json.
+UPDATE order_items i
+SET image_key = k.image_key
+FROM (VALUES
+    ('Akıllı Saat', 'smart-watch'), ('Baharat Rafı', 'spice-rack'), ('Blender Seti', 'blender'),
+    ('Bluetooth Hoparlör', 'bluetooth-speaker'), ('Çaycı Seti', 'tea-set'),
+    ('Çocuk Bisikleti', 'kids-bike'), ('Deri Kemer', 'leather-belt'),
+    ('Dizüstü Bilgisayar Çantası', 'laptop-bag'), ('Duvar Saati', 'wall-clock'),
+    ('Elektrikli Süpürge', 'vacuum-cleaner'), ('Halı', 'rug'), ('Kablosuz Kulaklık', 'headphones'),
+    ('Kahve Makinesi', 'coffee-machine'), ('Kışlık Mont', 'winter-jacket'), ('Kitap Seti', 'books'),
+    ('Kot Pantolon', 'jeans'), ('Masa Lambası', 'desk-lamp'), ('Mekanik Klavye', 'mechanical-keyboard'),
+    ('Mutfak Robotu', 'food-processor'), ('Nevresim Takımı', 'bedding'),
+    ('Ofis Koltuğu', 'office-chair'), ('Oyun Faresi', 'gaming-mouse'), ('Pamuklu Tişört', 't-shirt'),
+    ('Saç Kurutma Makinesi', 'hair-dryer'), ('Sırt Çantası', 'backpack'), ('Spor Ayakkabı', 'sneakers'),
+    ('Tablet Kalemi', 'stylus'), ('Telefon Kılıfı', 'phone-case'), ('Termos', 'thermos'),
+    ('Tost Makinesi', 'sandwich-maker'), ('Ütü', 'iron'), ('Yağmurluk', 'raincoat'),
+    ('Yoga Matı', 'yoga-mat')
+) AS k (product_name, image_key)
+WHERE i.product_name = k.product_name;
 
 UPDATE orders o
 SET total_kurus = t.total

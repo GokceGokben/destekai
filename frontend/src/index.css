@@ -1,0 +1,270 @@
+@import "tailwindcss";
+
+/* Dark mode follows the `dark` class on <html>, which index.html and the toggle set. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Copied from the Stitch export's tailwind.config, so its class names work unchanged. */
+@theme {
+  --color-on-secondary-container: #00714e;
+  --color-on-secondary-fixed: #002114;
+  --color-outline-variant: #d9cbb3;
+  --color-surface-variant: #707070;
+  --color-inverse-on-surface: #fbf3e8;
+  --color-on-primary-fixed-variant: #5e4430;
+  --color-on-error-container: #93000a;
+  --color-primary-container: #76583f;
+  --color-on-secondary: #ffffff;
+  --color-on-surface-variant: #45443a;
+  --color-on-tertiary-fixed: #2f1500;
+  --color-secondary-container: #82f5c1;
+  --color-surface-container-low: #f2f2f2;
+  --color-background: #fffefc;
+  --color-surface-container-lowest: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-tertiary-fixed-variant: #6e3900;
+  --color-surface-bright: #fefcf8;
+  --color-error: #ba1a1a;
+  --color-tertiary: #6b3700;
+  --color-surface-container-high: #ede3d2;
+  --color-secondary: #006c4a;
+  --color-primary: #635346;
+  --color-surface-container: #ebebeb;
+  --color-primary-fixed: #f6e3cc;
+  --color-surface: #fefcf8;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #fdebdd;
+  --color-inverse-surface: #2b1609;
+  --color-tertiary-fixed: #ffdcc3;
+  --color-tertiary-container: #8d4b00;
+  --color-outline: #857c6a;
+  --color-on-secondary-fixed-variant: #005137;
+  --color-on-surface: #1c0d04;
+
+  /* AI elements keep the original Stitch blue, apart from the rest of the palette. */
+  --color-ai: #1d4ed8;
+  --color-ai-deep: #0037b0;
+  --color-ai-ink: #cad3ff;
+  --color-ai-soft: #dae2fd;
+  --color-ai-surface: #f2f3ff;
+  --color-ai-container: #eaedff;
+  --color-ai-muted: #434655;
+  --color-ai-outline: #747686;
+  --color-ai-inset: #283044;
+  --color-ai-on-inset: #eef0ff;
+  --color-accent-orange: #b85a0c;
+
+  /* The names shadcn/ui components use, pointed at the tokens above. */
+  --color-foreground: var(--color-on-surface);
+  --color-card: var(--color-surface-container-lowest);
+  --color-card-foreground: var(--color-on-surface);
+  --color-primary-foreground: var(--color-on-primary);
+  --color-secondary-foreground: var(--color-on-secondary);
+  --color-muted: var(--color-surface-container);
+  --color-muted-foreground: var(--color-on-surface-variant);
+  --color-accent: var(--color-surface-container);
+  --color-accent-foreground: var(--color-on-surface);
+  --color-destructive: var(--color-error);
+  --color-border: var(--color-surface-variant);
+  --color-input: var(--color-surface-variant);
+  --color-ring: var(--color-primary);
+
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+
+  --spacing-margin: 2rem;
+  --spacing-gutter: 1.5rem;
+  --spacing-gutter-sm: 1rem;
+  --spacing-space-xs: 0.25rem;
+  --spacing-space-sm: 0.5rem;
+  --spacing-space-md: 1rem;
+  --spacing-space-lg: 1.5rem;
+  --spacing-space-xl: 2rem;
+
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-body-md: "Plus Jakarta Sans";
+  --font-body-sm: "Plus Jakarta Sans";
+  --font-body-lg: "Plus Jakarta Sans";
+  --font-label-md: "Plus Jakarta Sans";
+  --font-label-sm: "Plus Jakarta Sans";
+  --font-headline-sm: "Plus Jakarta Sans";
+  --font-headline-md: "Plus Jakarta Sans";
+  --font-headline-xl: "Plus Jakarta Sans";
+  --font-code-sm: "JetBrains Mono";
+
+  --text-headline-xl: 36px;
+  --text-headline-xl--line-height: 44px;
+  --text-headline-xl--letter-spacing: -0.025em;
+  --text-headline-xl--font-weight: 700;
+  --text-headline-md: 20px;
+  --text-headline-md--line-height: 28px;
+  --text-headline-md--letter-spacing: -0.015em;
+  --text-headline-md--font-weight: 600;
+  --text-headline-sm: 16px;
+  --text-headline-sm--line-height: 24px;
+  --text-headline-sm--letter-spacing: -0.01em;
+  --text-headline-sm--font-weight: 600;
+  --text-body-lg: 16px;
+  --text-body-lg--line-height: 26px;
+  --text-body-lg--letter-spacing: -0.005em;
+  --text-body-md: 14px;
+  --text-body-md--line-height: 22px;
+  --text-body-sm: 13px;
+  --text-body-sm--line-height: 18px;
+  --text-label-md: 14px;
+  --text-label-md--line-height: 20px;
+  --text-label-md--letter-spacing: 0.005em;
+  --text-label-md--font-weight: 500;
+  --text-label-sm: 12px;
+  --text-label-sm--line-height: 16px;
+  --text-label-sm--letter-spacing: 0.01em;
+  --text-label-sm--font-weight: 600;
+  --text-code-sm: 12px;
+  --text-code-sm--line-height: 16px;
+  --text-code-sm--font-weight: 500;
+
+  /* Tailwind 3 value, which the Stitch CDN build used. */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+/* The same palette after dark: utilities read these variables, so only the values change.
+   Status badges keep their own colours in both themes. */
+.dark {
+  color-scheme: dark;
+
+  /* Cool graphite surfaces; the warm brand accents below stay. */
+  --color-background: #141517;
+  --color-surface: #141517;
+  --color-surface-bright: #18191c;
+  --color-surface-container-lowest: #1d1f22;
+  --color-surface-container-low: #24262a;
+  --color-surface-container: #2b2e32;
+  --color-surface-container-high: #34373c;
+  --color-surface-variant: #43474d;
+  --color-outline-variant: #555a61;
+  --color-outline: #9aa0a8;
+  --color-on-surface: #e9ebee;
+  --color-on-surface-variant: #b9bec6;
+
+  /* Light enough to read as text on dark, so buttons that use it take dark text. */
+  --color-primary: #c9a385;
+  --color-on-primary: #1c120a;
+  --color-primary-container: #b48c6d;
+  --color-on-primary-container: #1c120a;
+  --color-primary-fixed: #34373c;
+  --color-on-primary-fixed-variant: #e7c9ad;
+  --color-inverse-surface: #efe4d6;
+  --color-inverse-on-surface: #2b1609;
+  --color-accent-orange: #f0a050;
+
+  --color-secondary: #6fdba8;
+  --color-error: #ffb4ab;
+  --color-error-container: #5c1a14;
+  --color-on-error-container: #ffdad6;
+  --color-tertiary: #ffb77d;
+  --color-tertiary-fixed: #4a2c12;
+  --color-on-tertiary-fixed: #ffdcc3;
+  --color-on-tertiary-fixed-variant: #ffdcc3;
+
+  --color-ai: #3b6cf0;
+  --color-ai-deep: #2f5fe0;
+  --color-ai-soft: #2c3a5c;
+  --color-ai-surface: #1d2333;
+  --color-ai-container: #252d42;
+  --color-ai-muted: #b3bdd6;
+  --color-ai-outline: #8d97b3;
+}
+
+/* The owner's pattern, mirrored into a 2×2 tile so that its edges meet when repeated. */
+.bg-pattern {
+  background-image: url(/pattern.png);
+  background-size: 240px;
+}
+
+.dark .bg-pattern {
+  background-image: url(/pattern-dark.png);
+}
+
+/* The customer panel's pattern. The tile is fully opaque and this variable sets its strength
+   in light mode: 0 hides it, 1 shows it at full strength. */
+:root {
+  --pattern-panel-opacity: 0.5;
+}
+
+/* The VIP gold, shared by the VIP pill and the ring around a VIP customer's portrait. */
+:root {
+  --vip-gradient: linear-gradient(135deg, rgb(184, 134, 11) 0%, rgb(229, 193, 88) 28%,
+    rgb(255, 241, 176) 48%, rgb(223, 177, 67) 65%, rgb(148, 105, 12) 100%);
+}
+
+/* A ring cannot take a gradient, so this paints the gradient under a transparent border and
+   covers the inside with the avatar's own fill. Unlayered, so it wins over bg-* utilities. */
+.vip-ring {
+  border: 3px solid transparent;
+  background:
+    linear-gradient(var(--color-surface-container), var(--color-surface-container)) padding-box,
+    var(--vip-gradient) border-box;
+}
+
+/* A pseudo-element, because opacity on the element itself would fade its content too. The
+   element must be positioned (relative or absolute) for it to fill it. */
+.bg-pattern-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image: url(/pattern-panel.png);
+  background-size: 240px;
+  opacity: var(--pattern-panel-opacity);
+}
+
+.dark .bg-pattern-panel::before {
+  background-image: url(/pattern-dark.png);
+  opacity: 1;
+}
+
+/* shadcn/ui expects this default; Tailwind 4 would otherwise draw borders in currentColor. */
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-border);
+  }
+}
+
+body {
+  overscroll-behavior: none;
+  @apply bg-background font-body-md text-body-md text-on-surface;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+.material-symbols-outlined {
+  font-size: inherit;
+  line-height: 1;
+}
+
+/* react-markdown emits plain elements, and Tailwind's reset removes their spacing. */
+.markdown > * + * {
+  margin-top: 0.5rem;
+}
+
+.markdown ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+
+.markdown ol {
+  list-style: decimal;
+  padding-left: 1.25rem;
+}
+
+.markdown strong {
+  font-weight: 600;
+}
+
+.markdown a {
+  text-decoration: underline;
+}

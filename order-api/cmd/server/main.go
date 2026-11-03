@@ -67,7 +67,7 @@ func run() error {
 
 	server := &http.Server{
 		Addr:              ":" + port,
-		Handler:           httpapi.NewRouter(store.New(pool), []byte(secret)),
+		Handler:           httpapi.NewRouter(store.New(pool), []byte(secret), os.Getenv("DEV_LOGIN") == "true"),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

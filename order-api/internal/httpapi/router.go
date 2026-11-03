@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -22,6 +23,7 @@ const (
 	requestTimeout  = 10 * time.Second
 	maxBodyBytes    = 4 << 10
 	maxReasonLength = 500
+	devTokenTTL     = 8 * time.Hour
 )
 
 type contextKey struct{}
@@ -31,8 +33,10 @@ type api struct {
 	jwtSecret []byte
 }
 
-// NewRouter builds the HTTP handler. All /v1 routes require a session token.
-func NewRouter(s *store.Store, jwtSecret []byte) http.Handler {
+// NewRouter builds the HTTP handler. All /v1 routes require a session token,
+// except /v1/dev, which exists only when devLogin is true: it hands out a token
+// for any customer, so it must stay off anywhere but a demo.
+func NewRouter(s *store.Store, jwtSecret []byte, devLogin bool) http.Handler {
 	a := &api{store: s, jwtSecret: jwtSecret}
 
 	r := chi.NewRouter()
@@ -46,13 +50,19 @@ func NewRouter(s *store.Store, jwtSecret []byte) http.Handler {
 
 	r.Get("/health", a.health)
 	r.Route("/v1", func(r chi.Router) {
-		r.Use(a.requireCustomer)
-		r.Get("/orders", a.listOrders)
-		// The pattern keeps malformed IDs, such as ones with NUL bytes, away from SQL.
-		r.Route("/orders/{id:DA-[0-9]{6}}", func(r chi.Router) {
-			r.Get("/", a.getOrder)
-			r.Get("/shipment", a.getShipment)
-			r.Post("/returns", a.createReturn)
+		if devLogin {
+			r.Get("/dev/customers", a.listDevCustomers)
+			r.Post("/dev/token", a.issueDevToken)
+		}
+		r.Group(func(r chi.Router) {
+			r.Use(a.requireCustomer)
+			r.Get("/orders", a.listOrders)
+			// The pattern keeps malformed IDs, such as ones with NUL bytes, away from SQL.
+			r.Route("/orders/{id:DA-[0-9]{6}}", func(r chi.Router) {
+				r.Get("/", a.getOrder)
+				r.Get("/shipment", a.getShipment)
+				r.Post("/returns", a.createReturn)
+			})
 		})
 	})
 	return r
@@ -88,6 +98,45 @@ func (a *api) health(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (a *api) listDevCustomers(w http.ResponseWriter, r *http.Request) {
+	customers, err := a.store.ListCustomers(r.Context())
+	if err != nil {
+		writeStoreError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"customers": customers})
+}
+
+func (a *api) issueDevToken(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		CustomerID string `json:"customer_id"`
+	}
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxBodyBytes))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body", "request body must be JSON with a customer_id field")
+		return
+	}
+
+	customers, err := a.store.ListCustomers(r.Context())
+	if err != nil {
+		writeStoreError(w, err)
+		return
+	}
+	i := slices.IndexFunc(customers, func(c store.Customer) bool { return c.ID == body.CustomerID })
+	if i < 0 {
+		writeError(w, http.StatusNotFound, "customer_not_found", "customer not found")
+		return
+	}
+
+	token, err := auth.Issue(a.jwtSecret, body.CustomerID, devTokenTTL)
+	if err != nil {
+		writeStoreError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"token": token, "customer": customers[i]})
 }
 
 func (a *api) listOrders(w http.ResponseWriter, r *http.Request) {
