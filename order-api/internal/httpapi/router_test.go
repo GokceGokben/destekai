@@ -478,3 +478,93 @@ func TestSeedData(t *testing.T) {
 		t.Errorf("%d orders have a total that differs from their items", mismatched)
 	}
 }
+
+func countHandoffs(t *testing.T, customerID string) int {
+	t.Helper()
+	var n int
+	err := testPool.QueryRow(context.Background(),
+		`SELECT count(*) FROM handoffs WHERE customer_id = $1`, customerID).Scan(&n)
+	if err != nil {
+		t.Fatalf("count handoffs: %v", err)
+	}
+	return n
+}
+
+func TestCreateHandoff(t *testing.T) {
+	h := newServer(t)
+	rec := request(t, h, http.MethodPost, "/v1/handoffs", "CUS-1001",
+		`{"conversation_id":"c-1","reason":"frustration","summary":"  Müşteri kargonun gecikmesine sinirlendi.  "}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d; body = %s", rec.Code, rec.Body.String())
+	}
+
+	handoff := decode[store.Handoff](t, rec)
+	if handoff.ConversationID != "c-1" || handoff.Reason != "frustration" || handoff.Status != "open" ||
+		handoff.Summary != "Müşteri kargonun gecikmesine sinirlendi." {
+		t.Errorf("unexpected handoff: %+v", handoff)
+	}
+	if n := countHandoffs(t, "CUS-1001"); n != 1 {
+		t.Errorf("handoffs = %d, want 1", n)
+	}
+}
+
+func TestRepeatedHandoffKeepsTheFirstRecord(t *testing.T) {
+	h := newServer(t)
+	first := decode[store.Handoff](t, request(t, h, http.MethodPost, "/v1/handoffs", "CUS-1001",
+		`{"conversation_id":"c-1","reason":"customer_request","summary":"İlk özet"}`))
+	second := decode[store.Handoff](t, request(t, h, http.MethodPost, "/v1/handoffs", "CUS-1001",
+		`{"conversation_id":"c-1","reason":"frustration","summary":"İkinci özet"}`))
+
+	if second.ID != first.ID || second.Summary != "İlk özet" || second.Reason != "customer_request" {
+		t.Errorf("second request changed the handoff: first %+v, second %+v", first, second)
+	}
+	if n := countHandoffs(t, "CUS-1001"); n != 1 {
+		t.Errorf("handoffs = %d, want 1", n)
+	}
+}
+
+// Conversation IDs come from the browser, so two customers can pick the same one. Each must
+// still get a record of their own, and neither can reach the other's.
+func TestHandoffsAreScopedToTheCustomer(t *testing.T) {
+	h := newServer(t)
+	body := `{"conversation_id":"shared","reason":"customer_request","summary":"Temsilci istedi."}`
+	a := decode[store.Handoff](t, request(t, h, http.MethodPost, "/v1/handoffs", "CUS-1001", body))
+	b := decode[store.Handoff](t, request(t, h, http.MethodPost, "/v1/handoffs", "CUS-1002", body))
+
+	if a.ID == b.ID {
+		t.Fatalf("two customers share handoff %s", a.ID)
+	}
+	if countHandoffs(t, "CUS-1001") != 1 || countHandoffs(t, "CUS-1002") != 1 {
+		t.Error("each customer should have exactly one handoff")
+	}
+}
+
+func TestCreateHandoffValidatesBody(t *testing.T) {
+	h := newServer(t)
+	tests := map[string]struct {
+		body, code string
+	}{
+		"not json":            {`nope`, "invalid_body"},
+		"customer id in body": {`{"conversation_id":"c-1","reason":"frustration","summary":"x","customer_id":"CUS-1002"}`, "invalid_body"},
+		"bad conversation id": {`{"conversation_id":"c:1","reason":"frustration","summary":"x"}`, "invalid_conversation_id"},
+		"unknown reason":      {`{"conversation_id":"c-1","reason":"bored","summary":"x"}`, "invalid_reason"},
+		"empty summary":       {`{"conversation_id":"c-1","reason":"frustration","summary":"  "}`, "invalid_summary"},
+		"long summary":        {fmt.Sprintf(`{"conversation_id":"c-1","reason":"frustration","summary":%q}`, strings.Repeat("ş", maxSummaryChars+1)), "invalid_summary"},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			rec := request(t, h, http.MethodPost, "/v1/handoffs", "CUS-1001", tt.body)
+			assertError(t, rec, http.StatusBadRequest, tt.code)
+		})
+	}
+	if n := countHandoffs(t, "CUS-1001"); n != 0 {
+		t.Errorf("invalid requests created %d handoffs", n)
+	}
+}
+
+func TestCreateHandoffRequiresAToken(t *testing.T) {
+	h := newServer(t)
+	rec := request(t, h, http.MethodPost, "/v1/handoffs", "",
+		`{"conversation_id":"c-1","reason":"frustration","summary":"x"}`)
+	assertError(t, rec, http.StatusUnauthorized, "unauthorized")
+}

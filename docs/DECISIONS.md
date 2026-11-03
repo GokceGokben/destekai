@@ -213,3 +213,28 @@
 - **Alternatives:** CSS scale and opacity, which only resize the window as a whole; `clip-path`, which cut the window instead of bending it; `html-to-image`, which captures scrolled lists from the top and was no faster.
 - **Why:** The effect squeezes each row by a different amount, which CSS transforms cannot do on a live element. Taking the snapshot on click cost 0.5–1s, mostly for embedding the fonts, which made the button feel broken.
 - **Limit:** A window closed within about half a second of a change waits for a fresh snapshot. The Google Fonts links need `crossorigin` so their rules can be read for embedding.
+
+## 036: Rule-based prompt injection check before the model
+
+- **Decision:** `guardrails/injection.py` normalizes the message (Turkish letters, leetspeak, zero-width characters, letters split by dots) and matches five rule groups: discarding instructions, revealing the prompt, role overrides, jailbreak modes and fake role markers. A blocked message gets a fixed Turkish reply and never reaches the model; the conversation stores a placeholder in its place.
+- **Alternatives:** An LLM classifier on every message; relying on the system prompt alone.
+- **Why:** No added latency or quota, and each decision can be tested and explained. Verbs match only as imperatives, so "kargo talimatını unuttum" passes. A paraphrase can still get through, which is acceptable because the check is not the security boundary: the model holds no customer identity and the order API checks ownership on every call.
+
+## 037: Personal data masked when a log record is created
+
+- **Decision:** `install_log_masking()` wraps the log record factory, so every record is masked whichever library logs it. TC kimlik numbers and card numbers are masked only when their check digits are valid; phones, IBANs and e-mail addresses by pattern. Handoff summaries go through the same function before they are stored.
+- **Alternatives:** A `logging.Filter` on our loggers, which misses uvicorn and httpx; masking at each log call.
+- **Why:** One place, nothing to forget. Check digits keep order numbers, prices and tracking codes readable. Tracebacks are not masked, so the service logs exception types only.
+
+## 038: Handoffs decided by rules and stored by the order API
+
+- **Decision:** The graph hands off when the customer asks for a person, when one message is clearly angry or two in a row are irritated, or after three failed turns in a row; the model can also call `escalate_to_human`. The order API stores one handoff per conversation in a `handoffs` table, with the customer taken from the token. Later messages in the conversation get a fixed reply without a model call.
+- **Alternatives:** Letting the model decide every handoff; keeping handoffs in the agent's memory.
+- **Why:** A rule cannot be talked out of a handoff, and the triggers can be tested. A database row lets the Phase 6 evaluation check that a handoff really happened. A failed turn is a tool error, an empty policy search, a blocked message, an empty reply or the step limit; answers such as "the return window has passed" are not failures. A helpful turn resets the count.
+- **Limit:** Frustration is a word list. It misses sarcasm and unusual phrasing, which the evaluation scenarios will measure.
+
+## 039: Invented order numbers are flagged after the reply, not blocked
+
+- **Decision:** After each reply, order numbers and tracking codes that no tool result and no customer message contained are reported as a `grounding_violation` event, logged, and counted as a failed turn.
+- **Alternatives:** Buffering the reply and checking it before it is shown.
+- **Why:** Buffering would end token streaming. The system prompt already forbids invented data, so this check measures how often the rule is broken and pushes a repeat offender towards a handoff. The Phase 6 judge covers invented facts that are not numbers.

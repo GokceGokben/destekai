@@ -109,6 +109,20 @@ test("the handoff notice appears only after a handoff", () => {
   expect(screen.getByRole("status")).toHaveTextContent("Canlı Temsilciye Aktarım Başlatıldı");
 });
 
+test("after a handoff the message box and quick replies are locked", async () => {
+  const handedOff = {
+    ...initialChatState,
+    messages: [message({ text: "Sizi bir müşteri temsilcimize aktarıyorum." })],
+    handoffSummary: "İade sorunu",
+  };
+  const { onSend } = renderChat(handedOff, "Siparişim nerede?");
+
+  expect(screen.getByRole("textbox", { name: "Mesajınız" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /Gönder/ })).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: /Kargo takibi/ }));
+  expect(onSend).not.toHaveBeenCalled();
+});
+
 test("the typing indicator disappears once text arrives", () => {
   const pending = { ...initialChatState, streaming: true, messages: [message({})] };
   renderChat(pending);

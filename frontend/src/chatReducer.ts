@@ -132,6 +132,13 @@ function applyEvent(state: ChatState, event: ChatEvent, at: number): ChatState {
       };
     case "error":
       return failed(state, event.data.message);
+    // Nothing to show the customer; the agent logs them.
+    case "guardrail":
+    case "grounding_violation":
+      return state;
+    // A newer agent may send events this version does not know; they must not wipe the chat.
+    default:
+      return state;
   }
 }
 

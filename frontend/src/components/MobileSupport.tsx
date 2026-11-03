@@ -5,7 +5,7 @@ import { formatMoney, formatPoints, orderBadge, orderTitle } from "../format";
 import type { Customer, Order } from "../types";
 import { cn } from "@/lib/utils";
 import { CardView } from "./Cards";
-import { MAX_MESSAGE_LENGTH, MessageMarkdown } from "./ChatPanel";
+import { HANDED_OFF_PLACEHOLDER, MAX_MESSAGE_LENGTH, MessageMarkdown } from "./ChatPanel";
 import { CustomerAvatar } from "./CustomerAvatar";
 import { Icon } from "./Icon";
 import { Logo } from "./Logo";
@@ -53,6 +53,7 @@ export function MobileSupport({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const end = useRef<HTMLDivElement>(null);
   const lastMessage = state.messages[state.messages.length - 1];
+  const handedOff = state.handoffSummary !== null;
   const activeOrder = orders?.find((order) => order.status === "shipped") ?? orders?.[0];
 
   useEffect(() => {
@@ -61,7 +62,7 @@ export function MobileSupport({
 
   function submit() {
     const text = draft.trim();
-    if (!text || state.streaming) return;
+    if (!text || state.streaming || handedOff) return;
     onDraftChange("");
     onSend(text);
   }
@@ -218,9 +219,9 @@ export function MobileSupport({
                 <button
                   key={reply.text}
                   type="button"
-                  disabled={state.streaming}
+                  disabled={state.streaming || handedOff}
                   onClick={() => onSend(reply.text)}
-                  className="shrink-0 px-3 py-1.5 rounded-full bg-surface-container-lowest shadow-sm text-ai-deep font-headline-sm text-[12px] flex items-center gap-1 hover:bg-ai-container transition-colors"
+                  className="shrink-0 px-3 py-1.5 rounded-full bg-surface-container-lowest shadow-sm text-ai-deep font-headline-sm text-[12px] flex items-center gap-1 hover:bg-ai-container transition-colors disabled:opacity-50"
                 >
                   <span>{reply.emoji}</span> {reply.text}
                 </button>
@@ -247,7 +248,8 @@ export function MobileSupport({
                   onKeyDown={(event) => event.key === "Enter" && submit()}
                   maxLength={MAX_MESSAGE_LENGTH}
                   aria-label="Mesajınız"
-                  placeholder="Siparişiniz veya ürünler hakkında bir soru sorun..."
+                  disabled={handedOff}
+                  placeholder={handedOff ? HANDED_OFF_PLACEHOLDER : "Siparişiniz veya ürünler hakkında bir soru sorun..."}
                   className="w-full bg-transparent border-none outline-none font-body-sm text-[13px] text-on-surface placeholder:text-ai-outline"
                 />
                 <button
@@ -261,9 +263,9 @@ export function MobileSupport({
               <button
                 type="button"
                 onClick={submit}
-                disabled={state.streaming || !draft.trim()}
+                disabled={state.streaming || handedOff || !draft.trim()}
                 aria-label="Gönder"
-                className="w-9 h-9 rounded-full bg-ai-deep text-white flex items-center justify-center shadow-md active:scale-95 transition-transform shrink-0"
+                className="w-9 h-9 rounded-full bg-ai-deep text-white flex items-center justify-center shadow-md active:scale-95 transition-transform shrink-0 disabled:opacity-50"
               >
                 <Icon name="send" className="text-[18px]" />
               </button>

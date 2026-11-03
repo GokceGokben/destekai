@@ -7,6 +7,9 @@ import { CardView } from "./Cards";
 import { Icon } from "./Icon";
 
 export const MAX_MESSAGE_LENGTH = 2000;
+// After a handoff the agent only repeats that a person will answer, so the box is locked
+// until the customer starts a new conversation.
+export const HANDED_OFF_PLACEHOLDER = "Bir müşteri temsilcisine aktarıldınız. Yeni bir konuşma başlatabilirsiniz.";
 
 const START_TOPICS = [
   { icon: "inventory_2", text: "Siparişim nerede?" },
@@ -51,6 +54,7 @@ export function ChatPanel({ state, draft, onDraftChange, onSend, onReset, onClos
   const stream = useRef<HTMLDivElement>(null);
   const lastMessage = state.messages[state.messages.length - 1];
   const empty = state.messages.length === 0;
+  const handedOff = state.handoffSummary !== null;
 
   useEffect(() => {
     stream.current?.scrollTo?.({ top: stream.current.scrollHeight });
@@ -58,7 +62,7 @@ export function ChatPanel({ state, draft, onDraftChange, onSend, onReset, onClos
 
   function submit() {
     const text = draft.trim();
-    if (!text || state.streaming) return;
+    if (!text || state.streaming || handedOff) return;
     onDraftChange("");
     onSend(text);
   }
@@ -153,9 +157,9 @@ export function ChatPanel({ state, draft, onDraftChange, onSend, onReset, onClos
               <button
                 key={reply.text}
                 type="button"
-                disabled={state.streaming}
+                disabled={state.streaming || handedOff}
                 onClick={() => onSend(reply.text)}
-                className={`px-3.5 py-1.5 rounded-full font-label-sm text-label-sm whitespace-nowrap transition-all duration-200 shadow-sm hover:-translate-y-0.5 disabled:cursor-not-allowed ${
+                className={`px-3.5 py-1.5 rounded-full font-label-sm text-label-sm whitespace-nowrap transition-all duration-200 shadow-sm hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 ${
                   reply.accent
                     ? "bg-tertiary-fixed hover:bg-tertiary-container hover:text-on-tertiary-fixed text-on-tertiary-fixed"
                     : "bg-blue-50 text-blue-900 border border-blue-200/60 hover:bg-blue-100"
@@ -174,7 +178,8 @@ export function ChatPanel({ state, draft, onDraftChange, onSend, onReset, onClos
             maxLength={MAX_MESSAGE_LENGTH}
             rows={2}
             aria-label="Mesajınız"
-            placeholder="Siparişiniz, iade veya ürünler hakkında bir soru sorun..."
+            disabled={handedOff}
+            placeholder={handedOff ? HANDED_OFF_PLACEHOLDER : "Siparişiniz, iade veya ürünler hakkında bir soru sorun..."}
             className="w-full bg-transparent text-on-surface font-body-md text-body-md placeholder:text-ai-muted focus:outline-none resize-none px-2 pt-1 pb-2 border-0"
           />
           <div className="flex items-center justify-between pt-1">
@@ -202,8 +207,8 @@ export function ChatPanel({ state, draft, onDraftChange, onSend, onReset, onClos
               <button
                 type="button"
                 onClick={submit}
-                disabled={state.streaming || !draft.trim()}
-                className="px-space-md py-2 rounded-lg bg-ai-deep hover:bg-ai text-white font-label-md text-label-md font-semibold flex items-center gap-1.5 shadow-sm transition-all hover:shadow disabled:cursor-not-allowed"
+                disabled={state.streaming || handedOff || !draft.trim()}
+                className="px-space-md py-2 rounded-lg bg-ai-deep hover:bg-ai text-white font-label-md text-label-md font-semibold flex items-center gap-1.5 shadow-sm transition-all hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <span>Gönder</span>
                 <Icon name="send" className="text-[18px]" />

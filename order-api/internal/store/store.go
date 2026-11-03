@@ -79,6 +79,16 @@ type Return struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// Handoff is a conversation passed to a human agent.
+type Handoff struct {
+	ID             string    `json:"id"`
+	ConversationID string    `json:"conversation_id"`
+	Reason         string    `json:"reason"`
+	Summary        string    `json:"summary"`
+	Status         string    `json:"status"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
 // Customer is the demo login's view of a customer. It leaves out the phone number.
 type Customer struct {
 	ID            string `json:"id"`
@@ -345,4 +355,22 @@ func checkReturnable(status string, deliveredAt, now time.Time) error {
 		return ErrReturnWindowExpired
 	}
 	return nil
+}
+
+// CreateHandoff records a handoff for one of the customer's conversations. Asking again for
+// the same conversation returns the first record unchanged, so a retry cannot overwrite the
+// summary or open a second ticket.
+func (s *Store) CreateHandoff(ctx context.Context, customerID, conversationID, reason, summary string) (Handoff, error) {
+	var h Handoff
+	err := s.pool.QueryRow(ctx, `
+		INSERT INTO handoffs (customer_id, conversation_id, reason, summary)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (customer_id, conversation_id) DO UPDATE SET customer_id = EXCLUDED.customer_id
+		RETURNING id::text, conversation_id, reason, summary, status, created_at`,
+		customerID, conversationID, reason, summary,
+	).Scan(&h.ID, &h.ConversationID, &h.Reason, &h.Summary, &h.Status, &h.CreatedAt)
+	if err != nil {
+		return Handoff{}, fmt.Errorf("insert handoff: %w", err)
+	}
+	return h, nil
 }

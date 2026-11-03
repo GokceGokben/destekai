@@ -169,7 +169,51 @@ TOOLS = {
     ]
 }
 
-TOOL_SPECS = [tool.spec for tool in TOOLS.values()]
+# Handing off ends the turn and changes the conversation's state, so the graph runs it
+# itself instead of execute_tool; the model only sees its spec.
+ESCALATE_TOOL = "escalate_to_human"
+ESCALATE_SPEC: ToolSpec = {
+    "name": ESCALATE_TOOL,
+    "description": (
+        "Hand the conversation to a human support agent. Call it when the customer asks for "
+        "a person, or when the other tools cannot resolve the request. This ends your part "
+        "of the conversation."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "summary": {
+                "type": "string",
+                "description": (
+                    "For the human agent, in Turkish: what the customer wants, which order it "
+                    "is about and what was already tried. No phone or ID numbers."
+                ),
+            },
+        },
+        "required": ["summary"],
+    },
+}
+
+TOOL_SPECS = [tool.spec for tool in TOOLS.values()] + [ESCALATE_SPEC]
+
+# Answers about the order, not failures: "not shipped yet" or "too late to return" is what
+# the customer needed to know. Every other error code counts towards a handoff.
+OUTCOME_ERRORS = {
+    "shipment_not_found",
+    "order_not_delivered",
+    "return_window_expired",
+    "return_already_exists",
+}
+
+
+def failure_of(name: str, result: dict[str, Any]) -> str | None:
+    """Describes a tool result that did not help the customer, or returns None."""
+    error = result.get("error")
+    if error and error not in OUTCOME_ERRORS:
+        return f"{name}: {error}"
+    if name == "search_policy" and not result.get("results"):
+        return "search_policy: sonuç yok"
+    return None
 
 
 async def execute_tool(

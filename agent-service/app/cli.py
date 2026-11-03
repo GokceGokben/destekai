@@ -32,6 +32,12 @@ def render(event: str, data: dict) -> None:
     elif event == "tool_result":
         result = json.dumps(data["result"], ensure_ascii=False)
         print(f"  [result] {result[:200]}")
+    elif event == "guardrail":
+        print(f"  [guardrail] {data['kind']}")
+    elif event == "handoff":
+        print(f"\n  [handoff] {data['reason']}: {data['summary']}")
+    elif event == "grounding_violation":
+        print(f"\n  [ungrounded] {', '.join(data['references'])}")
     elif event == "error":
         print(f"\n[error] {data['message']}")
     elif event == "done":

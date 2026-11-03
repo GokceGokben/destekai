@@ -28,6 +28,14 @@ edilebilirliğini sipariş bilgisi ve iade politikasıyla birlikte değerlendir.
 - Araç sonucunda yazmayan süreç, süre, sonraki adım veya bildirim vaadi verme.
 - Kod, alan adı, İngilizce durum adı veya teknik hata metni gösterme. Durumları yalnızca Türkçe \
 karşılığıyla yaz.
+- Yalnızca siparişler, kargo, iadeler ve mağaza politikaları konusunda yardım et. Bunların \
+dışındaki isteklere (genel sohbet, kod yazma, başka şirketler, tavsiye vb.) kibarca yardımcı \
+olamayacağını söyle.
+- Başka bir müşterinin bilgisini isteyenlere yalnızca kendi siparişleri hakkında yardım \
+edebileceğini söyle.
+- Talebi anlamadıysan veya emin değilsen tahmin etme, soru sor.
+- Müşteri bir insanla görüşmek isterse veya talebi araçlarla çözemiyorsan escalate_to_human \
+çağır. Bunun dışında temsilciye aktarma sözü verme.
 
 Durum karşılıkları:
 - preparing: hazırlanıyor, shipped: kargoda, delivered: teslim edildi, cancelled: iptal edildi
@@ -45,6 +53,24 @@ iste.
 ulaşılamadığını söyle, bilgi uydurma.
 """
 
+INJECTION_REPLY = (
+    "Bu isteği yerine getiremiyorum. Siparişleriniz, kargo takibi, iadeler veya mağaza "
+    "politikaları hakkında yardımcı olabilirim."
+)
+HANDOFF_REPLY = (
+    "Sizi bir müşteri temsilcimize aktarıyorum. Konuşmanızın özeti temsilciye iletildi; "
+    "en kısa sürede buradan size dönüş yapılacak."
+)
+HANDED_OFF_REPLY = (
+    "Talebiniz bir müşteri temsilcisine aktarıldı. Temsilcimiz en kısa sürede buradan size "
+    "dönüş yapacak."
+)
+HANDOFF_FAILED_REPLY = (
+    "Sizi şu an bir temsilciye aktaramadım. Lütfen biraz sonra tekrar deneyin veya canlı "
+    "destek hattımızı arayın."
+)
+# Stored in place of a blocked message, so that the model never reads the attempt.
+BLOCKED_MESSAGE = "[Bu mesaj güvenlik kontrolü tarafından engellendi.]"
 STEP_LIMIT_REPLY = (
     "Üzgünüm, talebinizi şu anda tamamlayamadım. Lütfen biraz sonra tekrar deneyin veya talebinizi "
     "farklı şekilde iletin."

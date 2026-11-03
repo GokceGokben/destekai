@@ -13,6 +13,7 @@ from sse_starlette.sse import EventSourceResponse
 from app.agent import AgentContext, build_graph
 from app.auth import InvalidTokenError, verify_token
 from app.config import Settings
+from app.guardrails.pii import install_log_masking
 from app.llm import build_llm_client
 from app.llm.base import LLMClient, RetryableLLMError
 from app.order_api import OrderApiClient
@@ -64,12 +65,14 @@ def _sse(event: str, data: dict[str, Any]) -> dict[str, str]:
 async def chat_events(graph: Any, session: Session, body: ChatRequest) -> AsyncIterator[dict]:
     usage = {"input_tokens": 0, "output_tokens": 0}
     try:
+        # The message goes in as "incoming": guard decides whether it joins the conversation.
+        turn = {"incoming": body.message, "steps": 0, "turn_failures": [], "turn_successes": 0}
         chunks = graph.astream(
-            {"messages": [{"role": "user", "content": body.message}], "steps": 0},
+            turn,
             config={
                 "configurable": {"thread_id": thread_id(session.customer_id, body.conversation_id)}
             },
-            context=AgentContext(token=session.token),
+            context=AgentContext(token=session.token, conversation_id=body.conversation_id),
             stream_mode="custom",
         )
         async for chunk in chunks:
@@ -83,7 +86,8 @@ async def chat_events(graph: Any, session: Session, body: ChatRequest) -> AsyncI
         logger.warning("LLM provider is rate limited")
         yield _sse("error", {"message": BUSY_REPLY})
     except Exception as exc:
-        # Only the type: messages can carry customer text, and masking arrives in Phase 5.
+        # Only the type: an exception message can carry customer text, and tracebacks are
+        # not masked.
         logger.error("chat failed: %s", type(exc).__name__)
         yield _sse("error", {"message": ERROR_REPLY})
 
@@ -94,6 +98,7 @@ def create_app(
     order_api: OrderApiClient | None = None,
     policy_search: PolicySearch | None = None,
 ) -> FastAPI:
+    install_log_masking()
     settings = settings or Settings()
     # The indexer shares Settings but signs nothing, so this is checked here.
     if len(settings.jwt_secret.get_secret_value()) < MIN_SECRET_LENGTH:

@@ -36,6 +36,12 @@ class OrderApiClient:
             "POST", f"/v1/orders/{order_id}/returns", token, json={"reason": reason}
         )
 
+    async def create_handoff(
+        self, token: str, conversation_id: str, reason: str, summary: str
+    ) -> dict[str, Any]:
+        body = {"conversation_id": conversation_id, "reason": reason, "summary": summary}
+        return await self._request("POST", "/v1/handoffs", token, json=body)
+
     async def _request(
         self, method: str, path: str, token: str, json: dict[str, Any] | None = None
     ) -> dict[str, Any]:

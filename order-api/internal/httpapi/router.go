@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -23,6 +24,7 @@ const (
 	requestTimeout  = 10 * time.Second
 	maxBodyBytes    = 4 << 10
 	maxReasonLength = 500
+	maxSummaryChars = 1000
 	devTokenTTL     = 8 * time.Hour
 )
 
@@ -57,6 +59,7 @@ func NewRouter(s *store.Store, jwtSecret []byte, devLogin bool) http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Use(a.requireCustomer)
 			r.Get("/orders", a.listOrders)
+			r.Post("/handoffs", a.createHandoff)
 			// The pattern keeps malformed IDs, such as ones with NUL bytes, away from SQL.
 			r.Route("/orders/{id:DA-[0-9]{6}}", func(r chi.Router) {
 				r.Get("/", a.getOrder)
@@ -191,6 +194,46 @@ func (a *api) createReturn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, ret)
+}
+
+var (
+	conversationIDPattern = regexp.MustCompile(`^[A-Za-z0-9-]{1,64}$`)
+	handoffReasons        = []string{"customer_request", "repeated_failures", "frustration", "agent_decision"}
+)
+
+func (a *api) createHandoff(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ConversationID string `json:"conversation_id"`
+		Reason         string `json:"reason"`
+		Summary        string `json:"summary"`
+	}
+	// As with returns, a customer_id in the body is an error, not something to ignore.
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxBodyBytes))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body", "request body must be JSON with conversation_id, reason and summary")
+		return
+	}
+
+	summary := strings.TrimSpace(body.Summary)
+	switch {
+	case !conversationIDPattern.MatchString(body.ConversationID):
+		writeError(w, http.StatusBadRequest, "invalid_conversation_id", "conversation_id must be 1-64 letters, digits or dashes")
+		return
+	case !slices.Contains(handoffReasons, body.Reason):
+		writeError(w, http.StatusBadRequest, "invalid_reason", "reason must be customer_request, repeated_failures, frustration or agent_decision")
+		return
+	case summary == "" || utf8.RuneCountInString(summary) > maxSummaryChars:
+		writeError(w, http.StatusBadRequest, "invalid_summary", "summary must be between 1 and 1000 characters")
+		return
+	}
+
+	handoff, err := a.store.CreateHandoff(r.Context(), customerID(r), body.ConversationID, body.Reason, summary)
+	if err != nil {
+		writeStoreError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, handoff)
 }
 
 func writeStoreError(w http.ResponseWriter, err error) {

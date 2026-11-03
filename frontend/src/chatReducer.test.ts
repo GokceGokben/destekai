@@ -124,8 +124,32 @@ test("an error event ends the stream and keeps the partial text", () => {
 });
 
 test("a handoff event stores the summary", () => {
-  const state = run({ event: "handoff", data: { summary: "Müşteri iade istiyor" } });
+  const state = run({
+    event: "handoff",
+    data: { reason: "customer_request", summary: "Müşteri iade istiyor" },
+  });
   expect(state.handoffSummary).toBe("Müşteri iade istiyor");
+});
+
+test("guardrail events leave the conversation as it is", () => {
+  const before = run({ event: "token", data: { text: "Bu isteği yerine getiremiyorum." } });
+  const after = chatReducer(before, {
+    type: "event",
+    event: { event: "guardrail", data: { kind: "prompt_injection" } },
+    at: 0,
+  });
+  const flagged = chatReducer(after, {
+    type: "event",
+    event: { event: "grounding_violation", data: { references: ["DA-123456"] } },
+    at: 0,
+  });
+  expect(flagged).toBe(before);
+});
+
+test("an event this version does not know does not wipe the chat", () => {
+  const before = run({ event: "token", data: { text: "Merhaba" } });
+  const unknown = { event: "something_new", data: {} } as unknown as ChatEvent;
+  expect(chatReducer(before, { type: "event", event: unknown, at: 0 })).toBe(before);
 });
 
 test("reset clears the conversation", () => {

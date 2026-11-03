@@ -1,6 +1,6 @@
 -- Fictional demo data. Dates are relative to now() so that the 14-day return
 -- scenarios stay valid; run cmd/seed to refresh them on an existing database.
-TRUNCATE returns, shipment_events, shipments, order_items, orders, customers;
+TRUNCATE handoffs, returns, shipment_events, shipments, order_items, orders, customers;
 
 INSERT INTO customers (id, full_name, email, phone, city, tier, loyalty_points, member_since) VALUES
     ('CUS-1001', 'Ayşe Yılmaz',  'ayse.yilmaz@example.com',  '+90 555 000 00 01', 'İstanbul',  'vip',      1840, CURRENT_DATE - interval '2 years'),

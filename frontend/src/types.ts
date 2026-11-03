@@ -66,7 +66,10 @@ export type ChatEvent =
   | { event: "token"; data: { text: string } }
   | { event: "tool_call"; data: { name: string; args: Record<string, unknown> } }
   | { event: "tool_result"; data: { name: string; result: ToolResult } }
-  // Sent by the agent from Phase 5 on.
-  | { event: "handoff"; data: { summary: string } }
+  | { event: "handoff"; data: { reason: string; summary: string } }
+  // A message blocked as prompt injection; the refusal itself arrives as tokens.
+  | { event: "guardrail"; data: { kind: string } }
+  // The reply named an order or tracking number no tool returned. Logged by the agent.
+  | { event: "grounding_violation"; data: { references: string[] } }
   | { event: "done"; data: { usage: Usage } }
   | { event: "error"; data: { message: string } };
