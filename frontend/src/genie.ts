@@ -139,6 +139,16 @@ export function useGenie(open: boolean, enabled: boolean, content: readonly unkn
   const [shown, setShown] = useState(open);
   const wasOpen = useRef(open);
   const latest = useRef<{ image: Promise<HTMLCanvasElement | null>; fresh: boolean } | null>(null);
+  // The theme is a class on <html>, outside React; a snapshot from the old theme would open a
+  // light window in dark mode, so a theme change counts as a content change.
+  const [theme, setTheme] = useState(() => document.documentElement.className);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const observer = new MutationObserver(() => setTheme(root.className));
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
 
   const capture = useCallback(() => {
     const node = windowRef.current?.firstElementChild;
@@ -153,7 +163,7 @@ export function useGenie(open: boolean, enabled: boolean, content: readonly unkn
     const timer = setTimeout(capture, SETTLE_MS);
     return () => clearTimeout(timer);
     // Spread, so a new array holding the same values does not reschedule the snapshot.
-  }, [enabled, capture, ...content]);
+  }, [enabled, capture, theme, ...content]);
 
   useEffect(() => {
     if (wasOpen.current === open) return;

@@ -173,7 +173,7 @@ export function LoginScreen({ onSelect }: Props) {
                 </CardContent>
                 <CardFooter className="mt-auto">
                   <Button
-                    className="w-full font-label-md text-label-md font-semibold bg-linear-to-r from-[#7aa596] to-[#4c7d77] text-[#fbf8ef] hover:from-[#6b9787] hover:to-[#3f6f69]"
+                    className="w-full font-label-md text-label-md font-semibold bg-linear-to-r from-[#6b9787] to-[#3f6f69] text-[#fbf8ef] hover:from-[#5c8878] hover:to-[#33615b]"
                     onClick={() => onSelect(customer.id).catch(() => setFailed(true))}
                   >
                     Giriş Yap
@@ -185,30 +185,6 @@ export function LoginScreen({ onSelect }: Props) {
                 </CardFooter>
               </Card>
             ))}
-          </div>
-
-          <div className="relative w-full max-w-4xl bg-surface-container-lowest/80 backdrop-blur rounded-xl p-space-md shadow-sm flex flex-col sm:flex-row items-center justify-between gap-space-md border border-outline-variant/30">
-            <div className="flex items-center gap-space-sm text-left">
-              <div className="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center shrink-0">
-                <Icon name="info" className="text-primary text-[20px]" />
-              </div>
-              <p className="font-body-sm text-body-sm text-on-surface-variant">
-                <span className="font-semibold text-on-surface">Bu bir demo uygulamasıdır,</span>{" "}
-                tüm veriler ve sipariş hareketleri simülatiftir.
-              </p>
-            </div>
-            <div className="flex items-center gap-space-xs shrink-0 flex-wrap justify-center">
-              <div className="inline-flex items-center gap-1.5 px-space-sm py-1 rounded-full bg-secondary-container/40 text-secondary">
-                <span className="w-2 h-2 rounded-full bg-secondary animate-ping" />
-                <span className="font-code-sm text-code-sm font-medium">
-                  Canlı Entegrasyon Simülasyonu
-                </span>
-              </div>
-              <div className="inline-flex items-center gap-1.5 px-space-sm py-1 rounded-full bg-surface-container-high text-on-surface-variant">
-                <Icon name="autorenew" className="text-[14px]" />
-                <span className="font-code-sm text-code-sm font-medium">Otomatik Sıfırlama</span>
-              </div>
-            </div>
           </div>
         </div>
       </main>

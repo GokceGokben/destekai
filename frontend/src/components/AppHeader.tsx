@@ -20,7 +20,7 @@ interface Props {
 /** One header for every page, so the logo, menu and controls never move between pages. */
 export function AppHeader({ active, children }: Props) {
   return (
-    <header className="fixed top-0 left-0 right-0 z-40 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+    <header className="fixed top-0 left-0 right-0 z-40 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_10px_24px_-12px_rgba(70,50,30,0.28)] dark:shadow-[0_10px_24px_-10px_rgba(0,0,0,0.7)]">
       <div className="h-16 w-full px-gutter-sm lg:px-margin flex items-center justify-between gap-space-md">
         <div className="flex items-center gap-space-lg">
           <Logo />

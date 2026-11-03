@@ -9,7 +9,7 @@ import { MAX_MESSAGE_LENGTH, MessageMarkdown } from "./ChatPanel";
 import { CustomerAvatar } from "./CustomerAvatar";
 import { Icon } from "./Icon";
 import { Logo } from "./Logo";
-import { VIP_RING } from "./OrdersPanel";
+import { VIP_RING, VipPill } from "./OrdersPanel";
 
 const QUICK_REPLIES = [
   { emoji: "📦", text: "Siparişim nerede?" },
@@ -21,8 +21,8 @@ const QUICK_REPLIES = [
 const WELCOME =
   "Merhaba! Siparişleriniz, kargo takibi veya iade işlemleri için size yardımcı olabilirim.";
 
-const TIER_LABELS: Record<Customer["tier"], string> = {
-  vip: "VIP Müşteri",
+// VIP customers get the gold VipPill instead.
+const TIER_LABELS: Record<Exclude<Customer["tier"], "vip">, string> = {
   standard: "Standart",
   new: "Yeni Müşteri",
 };
@@ -119,9 +119,13 @@ export function MobileSupport({
                   <span className="font-headline-sm text-[14px] text-on-surface truncate">
                     {customer.full_name}
                   </span>
-                  <span className="px-1.5 rounded-md border border-secondary bg-card text-secondary font-label-sm text-[10px] uppercase font-bold tracking-wider whitespace-nowrap">
-                    {TIER_LABELS[customer.tier]}
-                  </span>
+                  {customer.tier === "vip" ? (
+                    <VipPill />
+                  ) : (
+                    <span className="px-1.5 rounded-md border border-secondary bg-card text-secondary font-label-sm text-[10px] uppercase font-bold tracking-wider whitespace-nowrap">
+                      {TIER_LABELS[customer.tier]}
+                    </span>
+                  )}
                 </span>
                 {activeOrder && (
                   <span className="flex items-center gap-1 text-on-surface-variant font-body-sm text-[12px]">

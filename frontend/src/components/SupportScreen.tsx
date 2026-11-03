@@ -49,7 +49,7 @@ export function SupportScreen({ token, customer, onLogout }: Props) {
     <>
       <Header customer={customer} onLogout={onLogout} />
       <main className="w-full pt-16 bg-background min-h-screen">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-gutter px-gutter-sm py-space-lg lg:flex-row lg:items-start lg:px-margin">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-gutter px-gutter-sm py-space-lg lg:flex-row lg:items-start lg:px-margin">
           <CustomerCard customer={customer} onAskPolicy={askPolicy} />
           <OrderList orders={orders} onAsk={askAbout} onOpenChat={() => setChatOpen(true)} />
         </div>

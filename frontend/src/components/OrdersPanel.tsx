@@ -97,7 +97,9 @@ export function CustomerCard({ customer, onAskPolicy }: CustomerCardProps) {
               <h3 className="font-headline-sm text-headline-sm text-on-surface truncate">
                 {customer.full_name}
               </h3>
-              <Icon name="verified" filled className="text-[16px] text-secondary" />
+              {customer.tier === "vip" && (
+                <Icon name="verified" filled className="text-[16px] text-secondary" />
+              )}
             </div>
             <span className="font-label-sm text-label-sm text-on-surface-variant truncate">
               {customer.email}
@@ -282,8 +284,9 @@ function EmptyState({ searching, onOpenChat }: { searching: boolean; onOpenChat:
 
 function OrderCard({ order, onAsk }: { order: Order; onAsk: (orderId: string) => void }) {
   const badge = orderBadge(order);
+  // A soft shadow under each card, so neighbouring orders read as separate.
   return (
-    <Card className="gap-0 py-0">
+    <Card className="gap-0 py-0 shadow-[0_10px_24px_-12px_rgba(70,50,30,0.28)] dark:shadow-[0_10px_24px_-10px_rgba(0,0,0,0.7)]">
       <CardHeader className="flex flex-wrap items-center justify-between gap-space-sm border-b border-surface-variant/40 py-space-md">
         <div className="flex items-center gap-space-sm">
           {order.items.length > 1 && (
