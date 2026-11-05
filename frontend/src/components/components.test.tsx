@@ -123,6 +123,23 @@ test("after a handoff the message box and quick replies are locked", async () =>
   expect(onSend).not.toHaveBeenCalled();
 });
 
+test("an admin's read-only chat offers no action replies", () => {
+  render(
+    <ChatPanel
+      state={{ ...initialChatState, messages: [message({ text: "Merhaba" })] }}
+      draft=""
+      onDraftChange={vi.fn()}
+      onSend={vi.fn()}
+      onReset={vi.fn()}
+      onClose={vi.fn()}
+      readOnly
+    />,
+  );
+  expect(screen.getByRole("button", { name: /Kargo takibi/ })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /İade talebi oluştur/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Temsilciye bağlan/ })).toBeNull();
+});
+
 test("the typing indicator disappears once text arrives", () => {
   const pending = { ...initialChatState, streaming: true, messages: [message({})] };
   renderChat(pending);

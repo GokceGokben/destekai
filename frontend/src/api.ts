@@ -1,7 +1,63 @@
 import { readEvents } from "./sse";
-import type { ChatEvent, Customer, Order } from "./types";
+import type { Admin, ChatEvent, Customer, Order } from "./types";
 
 export class UnauthorizedError extends Error {}
+
+/** A refused request, with the order API's error code, e.g. "invalid_credentials". */
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+  ) {
+    super(code);
+  }
+}
+
+async function postJson<T>(path: string, body: unknown, token?: string): Promise<T> {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const error = (await response.json().catch(() => ({}))) as { code?: string };
+    throw new ApiError(response.status, error.code ?? "request_failed");
+  }
+  return response.json() as Promise<T>;
+}
+
+export function passwordLogin(email: string, password: string) {
+  return postJson<{ token: string; customer: Customer }>("/api/order/v1/auth/login", {
+    email,
+    password,
+  });
+}
+
+export function adminLogin(email: string, password: string) {
+  return postJson<{ token: string; admin: Admin }>("/api/order/v1/admin/login", {
+    email,
+    password,
+  });
+}
+
+export async function listAdminCustomers(token: string): Promise<Customer[]> {
+  const response = await fetch("/api/order/v1/admin/customers", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return (await getJson<{ customers: Customer[] }>(response)).customers;
+}
+
+/** A 15-minute read-only token for one customer. The order API records the view. */
+export function openCustomerView(adminToken: string, customerId: string) {
+  return postJson<{ token: string; customer: Customer }>(
+    `/api/order/v1/admin/customers/${customerId}/view-token`,
+    {},
+    adminToken,
+  );
+}
 
 async function getJson<T>(response: Response): Promise<T> {
   if (response.status === 401) throw new UnauthorizedError();

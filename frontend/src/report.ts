@@ -104,12 +104,16 @@ export type ReportState =
   | { status: "missing" }
   | { status: "ready"; report: EvalReport };
 
-export function useReport(): ReportState {
+/** The report is behind an admin check in nginx, so the admin's token goes along. */
+export function useReport(token: string, onUnauthorized: () => void): ReportState {
   const [state, setState] = useState<ReportState>({ status: "loading" });
   useEffect(() => {
     let active = true;
-    fetch(REPORT_URL, { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : null))
+    fetch(REPORT_URL, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } })
+      .then((response) => {
+        if (response.status === 401 || response.status === 403) onUnauthorized();
+        return response.ok ? response.json() : null;
+      })
       .then((report: EvalReport | null) => {
         if (active) setState(report ? { status: "ready", report } : { status: "missing" });
       })
@@ -117,6 +121,11 @@ export function useReport(): ReportState {
     return () => {
       active = false;
     };
-  }, []);
+  }, [token, onUnauthorized]);
   return state;
+}
+
+/** For the download link, which cannot send a header: the report as a file URL. */
+export function reportDownloadUrl(report: EvalReport): string {
+  return URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: "application/json" }));
 }

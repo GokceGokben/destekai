@@ -97,7 +97,34 @@ function serve(report: EvalReport | null) {
   );
 }
 
+const ADMIN_PROPS = {
+  token: "admin-token",
+  admin: { id: "ADM-1001", full_name: "Yönetici", email: "admin@destekai.local" },
+  onLogout: () => {},
+};
+
+beforeEach(() => {
+  // jsdom has no object URLs; the panel makes one for the download link.
+  URL.createObjectURL = vi.fn(() => "blob:report");
+  URL.revokeObjectURL = vi.fn();
+});
+
 afterEach(() => vi.unstubAllGlobals());
+
+test("the report is requested with the admin's token", async () => {
+  serve(REPORT);
+  render(<AdminScreen {...ADMIN_PROPS} />);
+  await screen.findByRole("table");
+  const [, init] = vi.mocked(fetch).mock.calls[0];
+  expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer admin-token");
+});
+
+test("a refused report signs the admin out", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 401 })));
+  const onLogout = vi.fn();
+  render(<AdminScreen {...ADMIN_PROPS} onLogout={onLogout} />);
+  await vi.waitFor(() => expect(onLogout).toHaveBeenCalled());
+});
 
 test("routes are read from the hash", () => {
   expect(parseRoute("")).toEqual({ page: "support" });
@@ -108,7 +135,7 @@ test("routes are read from the hash", () => {
 
 test("the panel shows the report's metrics and every scenario", async () => {
   serve(REPORT);
-  render(<AdminScreen />);
+  render(<AdminScreen {...ADMIN_PROPS} />);
 
   const card = (await screen.findByText("Görev Başarı Oranı")).parentElement!;
   expect(within(card).getByText("%50,0")).toBeInTheDocument();
@@ -122,7 +149,7 @@ test("the panel shows the report's metrics and every scenario", async () => {
 
 test("the failed filter and the side panel focus on what went wrong", async () => {
   serve(REPORT);
-  render(<AdminScreen />);
+  render(<AdminScreen {...ADMIN_PROPS} />);
   await screen.findByRole("table");
 
   // A failed scenario is selected first, with the judge's reason and the failed check.
@@ -136,21 +163,21 @@ test("the failed filter and the side panel focus on what went wrong", async () =
 
 test("without a report the panel explains how to make one", async () => {
   serve(null);
-  render(<AdminScreen />);
+  render(<AdminScreen {...ADMIN_PROPS} />);
   expect(await screen.findByText("Henüz bir değerlendirme raporu yok")).toBeInTheDocument();
   expect(screen.getByText(/python -m evals.run/)).toBeInTheDocument();
 });
 
 test("the replay shows tools, the blocked message and the judge", async () => {
   serve(REPORT);
-  render(<ReplayScreen id="status-shipped-watch" />);
+  render(<ReplayScreen id="status-shipped-watch" {...ADMIN_PROPS} />);
 
   expect(await screen.findByText("get_order_status")).toBeInTheDocument();
   expect(screen.getByText("kargoda").tagName).toBe("STRONG");
   expect(screen.getByText("Durumu araç sonucuna göre verdi.")).toBeInTheDocument();
 
   serve(REPORT);
-  render(<ReplayScreen id="injection-ignore-instructions" />);
+  render(<ReplayScreen id="injection-ignore-instructions" {...ADMIN_PROPS} />);
   expect(
     await screen.findByText("Güvenlik kontrolü bu mesajı modele göndermeden engelledi."),
   ).toBeInTheDocument();

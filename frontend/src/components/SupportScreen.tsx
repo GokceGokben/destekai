@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 
 import { listOrders, UnauthorizedError } from "../api";
 import { useGenie } from "../genie";
-import type { Customer, Order } from "../types";
+import type { Admin, Customer, Order } from "../types";
+import { AdminBadge } from "./AdminHome";
 import { useChat } from "../useChat";
 import { useIsMobile } from "../useIsMobile";
 import { AppHeader } from "./AppHeader";
@@ -14,10 +15,13 @@ import { CustomerCard, OrderList } from "./OrdersPanel";
 interface Props {
   token: string;
   customer: Customer;
+  /** Back to the login screen, or to the customer list for an admin. */
   onLogout: () => void;
+  /** Set when an admin views this customer read-only. */
+  viewer?: Admin;
 }
 
-export function SupportScreen({ token, customer, onLogout }: Props) {
+export function SupportScreen({ token, customer, onLogout, viewer }: Props) {
   const { state, latencyMs, send, reset } = useChat(token, onLogout);
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [draft, setDraft] = useState("");
@@ -47,8 +51,9 @@ export function SupportScreen({ token, customer, onLogout }: Props) {
 
   return (
     <>
-      <Header customer={customer} onLogout={onLogout} />
-      <main className="w-full pt-16 bg-background min-h-screen">
+      <Header customer={customer} onLogout={onLogout} viewer={viewer} />
+      {viewer && <ReadOnlyBanner customer={customer} viewer={viewer} onBack={onLogout} />}
+      <main className={`w-full bg-background min-h-screen ${viewer ? "pt-28" : "pt-16"}`}>
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-gutter px-gutter-sm py-space-lg lg:flex-row lg:items-start lg:px-margin">
           <CustomerCard customer={customer} onAskPolicy={askPolicy} />
           <OrderList orders={orders} onAsk={askAbout} onOpenChat={() => setChatOpen(true)} />
@@ -80,6 +85,7 @@ export function SupportScreen({ token, customer, onLogout }: Props) {
             onSend={send}
             onPickOrder={askAbout}
             onClose={() => setChatOpen(false)}
+            readOnly={Boolean(viewer)}
           />
         </div>
       ) : (
@@ -99,6 +105,7 @@ export function SupportScreen({ token, customer, onLogout }: Props) {
             onSend={send}
             onReset={reset}
             onClose={() => setChatOpen(false)}
+            readOnly={Boolean(viewer)}
           />
         </div>
       )}
@@ -119,7 +126,52 @@ export function SupportScreen({ token, customer, onLogout }: Props) {
   );
 }
 
-function Header({ customer, onLogout }: { customer: Customer; onLogout: () => void }) {
+/** Fixed under the header: an admin must never mistake the view for the customer's own. */
+function ReadOnlyBanner({
+  customer,
+  viewer,
+  onBack,
+}: {
+  customer: Customer;
+  viewer: Admin;
+  onBack: () => void;
+}) {
+  return (
+    <div
+      role="status"
+      className="fixed top-16 left-0 right-0 z-30 flex flex-wrap items-center justify-between gap-space-sm px-gutter-sm lg:px-margin py-2 bg-amber-50 text-amber-900 border-b border-amber-300 dark:bg-amber-950 dark:text-amber-100 dark:border-amber-800"
+    >
+      <span className="flex items-center gap-1.5 font-label-md text-label-md">
+        <Icon name="visibility" className="text-[18px]" />
+        Yönetici görünümü: <b>{customer.full_name}</b> — salt okunur ({viewer.full_name})
+      </span>
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-1 font-label-md text-label-md font-semibold hover:underline"
+      >
+        <Icon name="arrow_back" className="text-[16px]" /> Müşteri listesine dön
+      </button>
+    </div>
+  );
+}
+
+function Header({
+  customer,
+  onLogout,
+  viewer,
+}: {
+  customer: Customer;
+  onLogout: () => void;
+  viewer?: Admin;
+}) {
+  if (viewer) {
+    return (
+      <AppHeader active="Müşteri Desteği">
+        <AdminBadge admin={viewer} onLogout={onLogout} />
+      </AppHeader>
+    );
+  }
   return (
     <AppHeader active="Müşteri Desteği">
       <button

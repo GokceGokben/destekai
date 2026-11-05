@@ -5,13 +5,21 @@ import react from "@vitejs/plugin-react";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
 
-// The development twin of nginx's /reports/latest.json.
+// The development twin of nginx's /reports/latest.json, with the same admin check.
 function evalReport(): Plugin {
   const file = new URL("../evals/reports/latest.json", import.meta.url);
   return {
     name: "eval-report",
     configureServer(server) {
-      server.middlewares.use("/reports/latest.json", (_req, res) => {
+      server.middlewares.use("/reports/latest.json", async (req, res) => {
+        const check = await fetch("http://127.0.0.1:8080/v1/admin/me", {
+          headers: { Authorization: req.headers.authorization ?? "" },
+        }).catch(() => null);
+        if (!check?.ok) {
+          res.statusCode = check?.status ?? 502;
+          res.end();
+          return;
+        }
         readFile(file)
           .then((body) => {
             res.setHeader("Content-Type", "application/json");

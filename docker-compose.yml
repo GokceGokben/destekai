@@ -69,6 +69,12 @@ services:
       ORDER_API_URL: http://order-api:8080
       LLM_MODEL: ${LLM_MODEL:-gemini-3.6-flash}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      # Traces go to Postgres; Langfuse only when both keys are set (off by default).
+      LANGFUSE_HOST: ${LANGFUSE_HOST:-https://cloud.langfuse.com}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      PRICE_INPUT_PER_MTOK: ${PRICE_INPUT_PER_MTOK:-}
+      PRICE_OUTPUT_PER_MTOK: ${PRICE_OUTPUT_PER_MTOK:-}
     ports:
       - "127.0.0.1:${AGENT_SERVICE_PORT:-8000}:8000"
     depends_on:

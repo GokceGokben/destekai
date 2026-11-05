@@ -33,16 +33,20 @@ type contextKey struct{}
 type api struct {
 	store     *store.Store
 	jwtSecret []byte
+	logins    *loginLimiter
 }
 
 // NewRouter builds the HTTP handler. All /v1 routes require a session token,
 // except /v1/dev, which exists only when devLogin is true: it hands out a token
 // for any customer, so it must stay off anywhere but a demo.
 func NewRouter(s *store.Store, jwtSecret []byte, devLogin bool) http.Handler {
-	a := &api{store: s, jwtSecret: jwtSecret}
+	a := &api{store: s, jwtSecret: jwtSecret, logins: newLoginLimiter(time.Now)}
 
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID, middleware.Logger, middleware.Recoverer, middleware.Timeout(requestTimeout))
+	// RealIP trusts X-Real-IP, which nginx sets; the service itself is bound to
+	// localhost, so no one else can send it. The login rate limit counts per IP.
+	r.Use(middleware.RequestID, middleware.RealIP, middleware.Logger, middleware.Recoverer,
+		middleware.Timeout(requestTimeout))
 	r.NotFound(func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "resource not found")
 	})
@@ -56,8 +60,16 @@ func NewRouter(s *store.Store, jwtSecret []byte, devLogin bool) http.Handler {
 			r.Get("/dev/customers", a.listDevCustomers)
 			r.Post("/dev/token", a.issueDevToken)
 		}
+		r.Post("/auth/login", a.customerLogin)
+		r.Post("/admin/login", a.adminLogin)
 		r.Group(func(r chi.Router) {
-			r.Use(a.requireCustomer)
+			r.Use(a.requireRole(auth.RoleAdmin))
+			r.Get("/admin/me", a.adminMe)
+			r.Get("/admin/customers", a.listCustomersForAdmin)
+			r.Post("/admin/customers/{id:CUS-[0-9]{4}}/view-token", a.issueViewToken)
+		})
+		r.Group(func(r chi.Router) {
+			r.Use(a.requireRole(auth.RoleCustomer), rejectWritesWhenReadOnly)
 			r.Get("/orders", a.listOrders)
 			r.Post("/handoffs", a.createHandoff)
 			// The pattern keeps malformed IDs, such as ones with NUL bytes, away from SQL.
@@ -71,27 +83,50 @@ func NewRouter(s *store.Store, jwtSecret []byte, devLogin bool) http.Handler {
 	return r
 }
 
-// requireCustomer puts the token's customer ID into the request context. It is
-// the only place handlers can get a customer ID from.
-func (a *api) requireCustomer(next http.Handler) http.Handler {
+// requireRole puts the verified session into the request context. It is the only
+// place handlers can get an identity from. An admin token cannot reach the order
+// routes: an admin reads a customer's orders only through a view token.
+func (a *api) requireRole(role string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+			if !ok {
+				writeError(w, http.StatusUnauthorized, "unauthorized", "missing bearer token")
+				return
+			}
+			session, err := auth.Verify(a.jwtSecret, token)
+			if err != nil {
+				writeError(w, http.StatusUnauthorized, "unauthorized", "invalid token")
+				return
+			}
+			if session.Role != role {
+				writeError(w, http.StatusForbidden, "wrong_role", "this token cannot use this route")
+				return
+			}
+			ctx := context.WithValue(r.Context(), contextKey{}, session)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// rejectWritesWhenReadOnly enforces the admin view on the server: hiding buttons
+// is not enough. It covers every write route, including ones added later.
+func rejectWritesWhenReadOnly(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-		if !ok {
-			writeError(w, http.StatusUnauthorized, "unauthorized", "missing bearer token")
+		if sessionOf(r).ReadOnly && r.Method != http.MethodGet && r.Method != http.MethodHead {
+			writeError(w, http.StatusForbidden, "read_only_session", "this session is read-only")
 			return
 		}
-		customerID, err := auth.Verify(a.jwtSecret, token)
-		if err != nil {
-			writeError(w, http.StatusUnauthorized, "unauthorized", "invalid token")
-			return
-		}
-		ctx := context.WithValue(r.Context(), contextKey{}, customerID)
-		next.ServeHTTP(w, r.WithContext(ctx))
+		next.ServeHTTP(w, r)
 	})
 }
 
+func sessionOf(r *http.Request) auth.Session {
+	return r.Context().Value(contextKey{}).(auth.Session)
+}
+
 func customerID(r *http.Request) string {
-	return r.Context().Value(contextKey{}).(string)
+	return sessionOf(r).Subject
 }
 
 func (a *api) health(w http.ResponseWriter, r *http.Request) {
@@ -246,6 +281,8 @@ func writeStoreError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusConflict, "order_not_delivered", "only delivered orders can be returned")
 	case errors.Is(err, store.ErrReturnWindowExpired):
 		writeError(w, http.StatusConflict, "return_window_expired", "the 14-day return window has passed")
+	case errors.Is(err, store.ErrCustomerNotFound):
+		writeError(w, http.StatusNotFound, "customer_not_found", "customer not found")
 	case errors.Is(err, store.ErrReturnExists):
 		writeError(w, http.StatusConflict, "return_already_exists", "order already has a return")
 	default:

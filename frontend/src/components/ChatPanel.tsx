@@ -11,6 +11,13 @@ export const MAX_MESSAGE_LENGTH = 2000;
 // until the customer starts a new conversation.
 export const HANDED_OFF_PLACEHOLDER = "Bir müşteri temsilcisine aktarıldınız. Yeni bir konuşma başlatabilirsiniz.";
 
+// Requests that change something; an admin's read-only view does not offer them.
+export const ACTION_REPLIES = new Set(["İade talebi oluştur", "Temsilciye bağlan", "Adres değişikliği"]);
+
+export function forViewer<T extends { text: string }>(replies: T[], readOnly: boolean): T[] {
+  return readOnly ? replies.filter((reply) => !ACTION_REPLIES.has(reply.text)) : replies;
+}
+
 const START_TOPICS = [
   { icon: "inventory_2", text: "Siparişim nerede?" },
   { icon: "assignment_return", text: "İade talebi oluştur" },
@@ -35,6 +42,7 @@ interface Props {
   onSend: (text: string) => void;
   onReset: () => void;
   onClose: () => void;
+  readOnly?: boolean;
 }
 
 function downloadTranscript(messages: ChatMessage[]) {
@@ -50,7 +58,15 @@ function downloadTranscript(messages: ChatMessage[]) {
 }
 
 /** Fills its container: the chat window decides the size. */
-export function ChatPanel({ state, draft, onDraftChange, onSend, onReset, onClose }: Props) {
+export function ChatPanel({
+  state,
+  draft,
+  onDraftChange,
+  onSend,
+  onReset,
+  onClose,
+  readOnly = false,
+}: Props) {
   const stream = useRef<HTMLDivElement>(null);
   const lastMessage = state.messages[state.messages.length - 1];
   const empty = state.messages.length === 0;
@@ -128,7 +144,7 @@ export function ChatPanel({ state, draft, onDraftChange, onSend, onReset, onClos
       </div>
 
       {empty ? (
-        <Welcome onSend={onSend} />
+        <Welcome onSend={onSend} readOnly={readOnly} />
       ) : (
         <div
           ref={stream}
@@ -153,7 +169,7 @@ export function ChatPanel({ state, draft, onDraftChange, onSend, onReset, onClos
       <div className="p-space-md bg-surface-container-lowest border-t border-ai-soft/40 flex flex-col gap-space-sm">
         {!empty && (
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
-            {QUICK_REPLIES.map((reply) => (
+            {forViewer(QUICK_REPLIES, readOnly).map((reply) => (
               <button
                 key={reply.text}
                 type="button"
@@ -244,7 +260,7 @@ function HandoffBanner() {
   );
 }
 
-function Welcome({ onSend }: { onSend: (text: string) => void }) {
+function Welcome({ onSend, readOnly }: { onSend: (text: string) => void; readOnly: boolean }) {
   return (
     <div className="flex-1 min-h-0 overflow-y-auto p-space-lg flex flex-col items-center bg-surface-bright/40">
       <div className="w-full max-w-2xl flex flex-col items-center gap-space-lg my-auto text-center py-8">
@@ -282,7 +298,7 @@ function Welcome({ onSend }: { onSend: (text: string) => void }) {
             Hızlı Başlangıç Konuları
           </span>
           <div className="flex flex-wrap items-center justify-center gap-2.5">
-            {START_TOPICS.map(({ icon, text }) => (
+            {forViewer(START_TOPICS, readOnly).map(({ icon, text }) => (
               <button
                 key={text}
                 type="button"

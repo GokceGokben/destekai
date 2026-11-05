@@ -274,3 +274,37 @@
 - **Decision:** The free tier allows 20 generate requests per model per day (`GenerateRequestsPerDayPerProjectPerModel-FreeTier`), read from the 429 response. A full run of 56 scenarios needs about 150-170 agent calls, so it runs as one run resumed daily with `--resume`, after the quota resets at midnight Pacific time. The runner waits out an agent 429 twice, restarting the scenario from a fresh conversation, before it stops. The 5-scenario subset fits in a day and is what CI will run.
 - **Alternatives:** Ollama for the simulator and judge (checked: no discrete GPU and 11 GB of free disk on the development machine, so slow and a weaker Turkish judge); a weaker agent model with a larger quota, which would measure a different agent; paid tier.
 - **Why:** It keeps the agent, simulator and judge models the run was designed for, and costs nothing but time. Results are appended per scenario, so a stop loses nothing.
+
+## 046: Email and password login with bcrypt and a role claim
+
+- **Decision:**
+  - **Passwords:** bcrypt with cost 12 (`golang.org/x/crypto` v0.58.0), for customers and a new `admins` table.
+  - **Tokens:** they carry a `role` claim, `customer` or `admin`, and order routes accept only customer tokens.
+  - **Failed logins:** an unknown email and a wrong password get the same answer, and an unknown email is still compared against a fixed dummy hash so that the response time does not reveal it.
+  - **Rate limit:** five failures per email and per client address in 15 minutes return 429. The limit is kept in memory, and the client address comes from nginx's `X-Real-IP`, trusted because the service is bound to localhost.
+- **Alternatives:** argon2id; a rate limit in Redis; trusting any `X-Forwarded-For`.
+- **Why:** bcrypt is in Go's extended standard library and is enough here. One instance needs no shared store. The session is stored in the request context as a typed value; replacing the plain customer ID showed why: the old `.(string)` assertion would have compiled and then panicked on every request, which is what the role tests now cover.
+
+## 047: Admins view a customer through a read-only token
+
+- **Decision:** An admin token cannot read orders. To open a customer, the admin asks for a 15-minute customer token with `readonly: true` and `act: {sub: admin}` (RFC 8693), and every such view writes an audit row. Middleware refuses every non-GET request in a read-only session. The agent accepts that token, does not offer `create_return_request` or `escalate_to_human`, refuses them if called anyway, answers a request for a person with an explanation instead of a handoff, and keeps the admin's conversations in their own threads.
+- **Alternatives:** Letting admin tokens read any customer's orders; hiding buttons in the UI only.
+- **Why:** The subject stays the customer, so every existing ownership check applies unchanged, and the token says who is looking. Enforcement on the server covers routes added later; the UI only reflects it.
+
+## 048: The evaluation report sits behind an admin check in nginx
+
+- **Decision:** `/reports/latest.json` uses nginx's `auth_request` against the order API's `GET /v1/admin/me`; the panel sends the admin token, and the Vite dev server performs the same check. The download link is built from the report already in memory, since a link cannot send a header.
+- **Alternatives:** Serving the report from an API endpoint; hiding the page only.
+- **Why:** The file stays a static file the evaluation writes, and access is decided by the same service that issues admin tokens.
+
+## 049: Traces in the project's Postgres, Langfuse optional
+
+- **Decision:** Every answered message is written to an `agent_traces` table with latency, time to first token, tokens, cost, tools and outcome, texts masked. The agent's role may insert there and nothing else. With `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` set, traces are also sent to Langfuse's public ingestion API through `httpx`; without them nothing leaves the machine. A failed write is logged and never breaks the chat.
+- **Alternatives:** Langfuse Cloud by default; self-hosted Langfuse v3 (Postgres, ClickHouse, Redis and MinIO).
+- **Why:** The brief names Langfuse, but the owner asked that no data leave the machine and that the laptop not run another heavy stack. Postgres already runs, and the HTTP API keeps the Langfuse path without an SDK dependency.
+
+## 050: The evaluation in CI runs on demand
+
+- **Decision:** Every pull request runs lint and unit tests for the three services. The 5-scenario evaluation starts the whole stack with compose and runs only for the `run-evals` label or a manual run, using the `GEMINI_API_KEY` repository secret, and uploads the report as an artifact.
+- **Alternatives:** Running it on every pull request, as the brief says; recorded model replies.
+- **Why:** The free tier allows 20 requests per model a day and one run uses about 15, so an automatic run on every push would starve the evaluation itself. The label keeps it one click away.

@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import SecretStr, model_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,6 +21,19 @@ class Settings(BaseSettings):
     embedding_model: str = "gemini-embedding-001"
 
     policy_dir: str = "/policies"
+
+    # Traces always go to the project's Postgres. Langfuse only when both keys are set.
+    langfuse_host: str = "https://cloud.langfuse.com"
+    langfuse_public_key: str = ""
+    langfuse_secret_key: SecretStr = SecretStr("")
+    # USD per million tokens of LLM_MODEL, for the cost column. Empty: cost is unknown.
+    price_input_per_mtok: float | None = None
+    price_output_per_mtok: float | None = None
+
+    @field_validator("price_input_per_mtok", "price_output_per_mtok", mode="before")
+    @classmethod
+    def empty_is_unknown(cls, value: object) -> object:
+        return None if value == "" else value
 
     @model_validator(mode="after")
     def require_gemini_key(self) -> "Settings":

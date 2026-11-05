@@ -1,6 +1,7 @@
 -- Fictional demo data. Dates are relative to now() so that the 14-day return
 -- scenarios stay valid; run cmd/seed to refresh them on an existing database.
-TRUNCATE handoffs, returns, shipment_events, shipments, order_items, orders, customers;
+TRUNCATE admin_audit_log, admins, handoffs, returns, shipment_events, shipments, order_items,
+    orders, customers;
 
 INSERT INTO customers (id, full_name, email, phone, city, tier, loyalty_points, member_since) VALUES
     ('CUS-1001', 'Ayşe Yılmaz',  'ayse.yilmaz@example.com',  '+90 555 000 00 01', 'İstanbul',  'vip',      1840, CURRENT_DATE - interval '2 years'),
@@ -13,6 +14,14 @@ INSERT INTO customers (id, full_name, email, phone, city, tier, loyalty_points, 
     ('CUS-1008', 'Can Öztürk',   'can.ozturk@example.com',   '+90 555 000 00 08', 'Eskişehir', 'new',       100, CURRENT_DATE - interval '1 month'),
     ('CUS-1009', 'Deniz Aydın',  'deniz.aydin@example.com',  '+90 555 000 00 09', 'Gaziantep', 'standard',  260, CURRENT_DATE - interval '1 year'),
     ('CUS-1010', 'Ece Polat',    'ece.polat@example.com',    '+90 555 000 00 10', 'Konya',     'standard',  690, CURRENT_DATE - interval '3 years');
+
+-- Demo passwords for local use: DestekAI-demo-2026 for every customer and
+-- DestekAI-admin-2026 for the admin. Only bcrypt hashes (cost 12) are stored.
+UPDATE customers SET password_hash = '$2a$12$5EDzR2RJstDs2HuyD1A9oefIdev7TmnqZEtzIukWHwNFZUjAtdOd.';
+
+INSERT INTO admins (id, full_name, email, password_hash) VALUES
+    ('ADM-1001', 'Yönetici', 'admin@destekai.local',
+     '$2a$12$eU4O6S72.KurY8sMGINeMuBM4PHjIedWucyHtQuMGDtON09fRD1gi');
 
 -- Totals start at zero and are derived from order_items below.
 INSERT INTO orders (id, customer_id, status, total_kurus, placed_at, delivered_at) VALUES

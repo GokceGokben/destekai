@@ -33,6 +33,9 @@ var (
 	ErrNotDelivered        = errors.New("order is not delivered")
 	ErrReturnWindowExpired = errors.New("return window expired")
 	ErrReturnExists        = errors.New("order already has a return")
+	ErrCustomerNotFound    = errors.New("customer not found")
+	// ErrNoAccount covers an unknown email and an account without a password alike.
+	ErrNoAccount = errors.New("no account")
 )
 
 type OrderItem struct {
@@ -77,6 +80,13 @@ type Return struct {
 	Reason    string    `json:"reason"`
 	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+// Admin is a store employee who can view customers' panels read-only.
+type Admin struct {
+	ID       string `json:"id"`
+	FullName string `json:"full_name"`
+	Email    string `json:"email"`
 }
 
 // Handoff is a conversation passed to a human agent.
@@ -145,27 +155,98 @@ func (s *Store) Ping(ctx context.Context) error {
 }
 
 // ListCustomers returns every customer. Only the demo login may call it.
+const customerQuery = `
+	SELECT c.id, c.full_name, c.email, c.city, c.tier, c.loyalty_points,
+		extract(year FROM age(c.member_since))::int, count(o.id)::int
+	FROM customers c
+	LEFT JOIN orders o ON o.customer_id = c.id`
+
+func scanCustomer(row pgx.CollectableRow) (Customer, error) {
+	var c Customer
+	err := row.Scan(&c.ID, &c.FullName, &c.Email, &c.City, &c.Tier, &c.LoyaltyPoints,
+		&c.MemberYears, &c.OrderCount)
+	return c, err
+}
+
 func (s *Store) ListCustomers(ctx context.Context) ([]Customer, error) {
-	rows, err := s.pool.Query(ctx, `
-		SELECT c.id, c.full_name, c.email, c.city, c.tier, c.loyalty_points,
-			extract(year FROM age(c.member_since))::int, count(o.id)::int
-		FROM customers c
-		LEFT JOIN orders o ON o.customer_id = c.id
-		GROUP BY c.id
-		ORDER BY c.id`)
+	rows, err := s.pool.Query(ctx, customerQuery+` GROUP BY c.id ORDER BY c.id`)
 	if err != nil {
 		return nil, fmt.Errorf("query customers: %w", err)
 	}
-	customers, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Customer, error) {
-		var c Customer
-		err := row.Scan(&c.ID, &c.FullName, &c.Email, &c.City, &c.Tier, &c.LoyaltyPoints,
-			&c.MemberYears, &c.OrderCount)
-		return c, err
-	})
+	customers, err := pgx.CollectRows(rows, scanCustomer)
 	if err != nil {
 		return nil, fmt.Errorf("scan customers: %w", err)
 	}
 	return customers, nil
+}
+
+func (s *Store) GetCustomer(ctx context.Context, customerID string) (Customer, error) {
+	rows, err := s.pool.Query(ctx, customerQuery+` WHERE c.id = $1 GROUP BY c.id`, customerID)
+	if err != nil {
+		return Customer{}, fmt.Errorf("query customer: %w", err)
+	}
+	customer, err := pgx.CollectExactlyOneRow(rows, scanCustomer)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Customer{}, ErrCustomerNotFound
+	}
+	if err != nil {
+		return Customer{}, fmt.Errorf("scan customer: %w", err)
+	}
+	return customer, nil
+}
+
+// CustomerCredentials returns the ID and password hash for a login email. A customer
+// without a password, who can only use the demo login, counts as no account.
+func (s *Store) CustomerCredentials(ctx context.Context, email string) (id, hash string, err error) {
+	err = s.pool.QueryRow(ctx, `
+		SELECT id, password_hash FROM customers
+		WHERE lower(email) = lower($1) AND password_hash IS NOT NULL`, email).Scan(&id, &hash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", "", ErrNoAccount
+	}
+	if err != nil {
+		return "", "", fmt.Errorf("query customer credentials: %w", err)
+	}
+	return id, hash, nil
+}
+
+func (s *Store) AdminCredentials(ctx context.Context, email string) (Admin, string, error) {
+	var a Admin
+	var hash string
+	err := s.pool.QueryRow(ctx, `
+		SELECT id, full_name, email, password_hash FROM admins WHERE lower(email) = lower($1)`,
+		email).Scan(&a.ID, &a.FullName, &a.Email, &hash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Admin{}, "", ErrNoAccount
+	}
+	if err != nil {
+		return Admin{}, "", fmt.Errorf("query admin credentials: %w", err)
+	}
+	return a, hash, nil
+}
+
+func (s *Store) GetAdmin(ctx context.Context, adminID string) (Admin, error) {
+	var a Admin
+	err := s.pool.QueryRow(ctx, `SELECT id, full_name, email FROM admins WHERE id = $1`, adminID).
+		Scan(&a.ID, &a.FullName, &a.Email)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Admin{}, ErrNoAccount
+	}
+	if err != nil {
+		return Admin{}, fmt.Errorf("query admin: %w", err)
+	}
+	return a, nil
+}
+
+// RecordAdminView writes the audit row for an admin opening a customer's panel.
+func (s *Store) RecordAdminView(ctx context.Context, adminID, customerID string) error {
+	_, err := s.pool.Exec(ctx, `
+		INSERT INTO admin_audit_log (admin_id, customer_id, action) VALUES ($1, $2, 'view_customer')`,
+		adminID, customerID)
+	if err != nil {
+		return fmt.Errorf("insert audit row: %w", err)
+	}
+	return nil
 }
 
 // The join yields at most one return per order: rejected ones are excluded and

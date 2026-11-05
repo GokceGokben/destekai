@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -7,13 +7,15 @@ import { cn } from "@/lib/utils";
 
 import {
   CATEGORY_LABELS,
-  REPORT_URL,
+  reportDownloadUrl,
   succeeded,
   useReport,
   type EvalReport,
   type ScenarioResult,
 } from "../report";
 import { HREF } from "../route";
+import type { Admin } from "../types";
+import { AdminBadge } from "./AdminHome";
 import { AppHeader } from "./AppHeader";
 import { MessageMarkdown } from "./ChatPanel";
 import { Icon } from "./Icon";
@@ -71,11 +73,19 @@ export function Badge({
   );
 }
 
-export function AdminScreen() {
-  const state = useReport();
+interface Props {
+  token: string;
+  admin: Admin;
+  onLogout: () => void;
+}
+
+export function AdminScreen({ token, admin, onLogout }: Props) {
+  const state = useReport(token, onLogout);
   return (
     <>
-      <AppHeader active="Yönetici Değerlendirme & Test Paneli" />
+      <AppHeader active="Yönetici Değerlendirme & Test Paneli">
+        <AdminBadge admin={admin} onLogout={onLogout} />
+      </AppHeader>
       <main className="w-full pt-16 bg-background min-h-screen">
         <div className="mx-auto w-full max-w-7xl px-gutter-sm lg:px-margin py-space-lg flex flex-col gap-gutter">
           {state.status === "loading" && <LoadingState />}
@@ -93,6 +103,9 @@ function Dashboard({ report }: { report: EvalReport }) {
   const rows = filter === "all" ? report.results : failed;
   const [selectedId, setSelectedId] = useState(() => (failed[0] ?? report.results[0])?.id);
   const selected = report.results.find((r) => r.id === selectedId);
+  // The report URL needs the admin's token, which a plain link cannot send.
+  const downloadUrl = useMemo(() => reportDownloadUrl(report), [report]);
+  useEffect(() => () => URL.revokeObjectURL(downloadUrl), [downloadUrl]);
 
   return (
     <>
@@ -124,7 +137,7 @@ function Dashboard({ report }: { report: EvalReport }) {
                 {report.results.length - failed.length} / {report.results.length} senaryo başarılı
               </span>
               <a
-                href={REPORT_URL}
+                href={downloadUrl}
                 download={`destekai-eval-${report.run_id}.json`}
                 className="font-code-sm text-code-sm text-primary underline underline-offset-4"
               >

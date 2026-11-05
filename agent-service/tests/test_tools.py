@@ -32,7 +32,9 @@ def test_app_refuses_a_short_jwt_secret():
 
 
 def test_verify_token_returns_customer():
-    assert verify_token(SECRET, issue_dev_token(SECRET, "CUS-1001")) == "CUS-1001"
+    claims = verify_token(SECRET, issue_dev_token(SECRET, "CUS-1001"))
+    assert claims.customer_id == "CUS-1001"
+    assert not claims.read_only
 
 
 def test_verify_token_rejects_expired():

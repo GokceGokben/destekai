@@ -55,7 +55,9 @@ class FakePolicySearch:
 
 
 class Harness:
-    def __init__(self, llm: FakeLLM, policy_search: FakePolicySearch | None = None) -> None:
+    def __init__(
+        self, llm: FakeLLM, policy_search: FakePolicySearch | None = None, tracer=None
+    ) -> None:
         self.llm = llm
         settings = Settings(
             jwt_secret=SecretStr(SECRET),
@@ -68,6 +70,7 @@ class Harness:
             llm=llm,
             order_api=OrderApiClient(ORDER_API_URL),
             policy_search=policy_search or FakePolicySearch(),
+            tracer=tracer,
         )
 
     async def post(self, message: str, customer: str = "CUS-1001", conversation: str = "c1"):

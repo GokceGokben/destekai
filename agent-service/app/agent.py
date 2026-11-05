@@ -40,10 +40,18 @@ from app.prompts import (
     HANDOFF_FAILED_REPLY,
     HANDOFF_REPLY,
     INJECTION_REPLY,
+    READ_ONLY_ACTION_REPLY,
     STEP_LIMIT_REPLY,
     build_system_prompt,
 )
-from app.tools import ESCALATE_TOOL, TOOL_SPECS, ToolDeps, execute_tool, failure_of
+from app.tools import (
+    ESCALATE_TOOL,
+    READ_ONLY_TOOL_SPECS,
+    TOOL_SPECS,
+    ToolDeps,
+    execute_tool,
+    failure_of,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +71,8 @@ class AgentContext:
 
     token: str
     conversation_id: str
+    # An admin viewing the customer: no writes, no handoffs.
+    read_only: bool = False
 
 
 class PendingHandoff(TypedDict):
@@ -124,6 +134,15 @@ def build_graph(
                 goto="review",
             )
 
+        # An admin looking at a customer's panel is neither the customer nor upset, and the
+        # view cannot open a handoff; the request gets an explanation instead.
+        if runtime.context.read_only:
+            if wants_human(text):
+                return Command(
+                    update={"messages": [user, _say(runtime, READ_ONLY_ACTION_REPLY)]}, goto=END
+                )
+            return Command(update={"messages": [user]}, goto="agent")
+
         if wants_human(text):
             pending: PendingHandoff = {"reason": "customer_request", "summary": None}
             return Command(update={"messages": [user], "pending_handoff": pending}, goto="handoff")
@@ -139,7 +158,9 @@ def build_graph(
     async def agent(state: AgentState, runtime: Runtime[AgentContext]) -> dict:
         text = ""
         tool_calls: list[ToolCall] = []
-        stream = llm.stream(build_system_prompt(), state["messages"], TOOL_SPECS)
+        read_only = runtime.context.read_only
+        tools = READ_ONLY_TOOL_SPECS if read_only else TOOL_SPECS
+        stream = llm.stream(build_system_prompt(read_only=read_only), state["messages"], tools)
         async for event in stream:
             match event:
                 case TextDelta(delta):
@@ -176,7 +197,7 @@ def build_graph(
             runtime.stream_writer(
                 {"type": "tool_call", "data": {"name": call["name"], "args": call["args"]}}
             )
-            if call["name"] == ESCALATE_TOOL:
+            if call["name"] == ESCALATE_TOOL and not runtime.context.read_only:
                 summary = call["args"].get("summary")
                 pending = {
                     "reason": "agent_decision",
@@ -185,7 +206,13 @@ def build_graph(
                 # Every call needs a reply in the history, or the next request is invalid.
                 result: dict[str, Any] = {"status": "handing_off"}
             else:
-                result = await execute_tool(deps, runtime.context.token, call["name"], call["args"])
+                result = await execute_tool(
+                    deps,
+                    runtime.context.token,
+                    call["name"],
+                    call["args"],
+                    read_only=runtime.context.read_only,
+                )
                 failure = failure_of(call["name"], result)
                 if failure:
                     failures.append(failure)
@@ -234,7 +261,7 @@ def build_graph(
             failed_turns = 0
 
         update: dict[str, Any] = {"failed_turns": failed_turns, "turn_failures": failures}
-        if failed_turns >= MAX_FAILED_TURNS:
+        if failed_turns >= MAX_FAILED_TURNS and not runtime.context.read_only:
             update["pending_handoff"] = {"reason": "repeated_failures", "summary": None}
             return Command(update=update, goto="handoff")
         return Command(update=update, goto=END)

@@ -5,7 +5,12 @@ import { formatMoney, formatPoints, orderBadge, orderTitle } from "../format";
 import type { Customer, Order } from "../types";
 import { cn } from "@/lib/utils";
 import { CardView } from "./Cards";
-import { HANDED_OFF_PLACEHOLDER, MAX_MESSAGE_LENGTH, MessageMarkdown } from "./ChatPanel";
+import {
+  forViewer,
+  HANDED_OFF_PLACEHOLDER,
+  MAX_MESSAGE_LENGTH,
+  MessageMarkdown,
+} from "./ChatPanel";
 import { CustomerAvatar } from "./CustomerAvatar";
 import { Icon } from "./Icon";
 import { Logo } from "./Logo";
@@ -37,6 +42,7 @@ interface Props {
   onSend: (text: string) => void;
   onPickOrder: (orderId: string) => void;
   onClose: () => void;
+  readOnly?: boolean;
 }
 
 export function MobileSupport({
@@ -49,6 +55,7 @@ export function MobileSupport({
   onSend,
   onPickOrder,
   onClose,
+  readOnly = false,
 }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const end = useRef<HTMLDivElement>(null);
@@ -215,7 +222,7 @@ export function MobileSupport({
         <div className="fixed bottom-16 left-0 w-full z-40 flex flex-col pointer-events-none">
           <div className="w-full max-w-[480px] mx-auto pointer-events-auto flex flex-col">
             <div className="px-gutter-sm pb-2 flex gap-1.5 overflow-x-auto">
-              {QUICK_REPLIES.map((reply) => (
+              {forViewer(QUICK_REPLIES, readOnly).map((reply) => (
                 <button
                   key={reply.text}
                   type="button"

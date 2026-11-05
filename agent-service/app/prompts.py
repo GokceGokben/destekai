@@ -80,6 +80,18 @@ BUSY_REPLY = "Şu anda yoğunluk yaşıyoruz. Lütfen birkaç dakika sonra tekra
 ERROR_REPLY = "Bir sorun oluştu. Lütfen biraz sonra tekrar deneyin."
 
 
-def build_system_prompt(now: datetime | None = None) -> str:
+READ_ONLY_NOTE = """
+Bu konuşmada müşteriyle değil, müşterinin panelini salt okunur görüntüleyen bir mağaza \
+yöneticisiyle konuşuyorsun. Bilgi verebilirsin, ancak iade açma veya temsilciye aktarma gibi \
+işlemler bu görünümden yapılamaz; böyle bir istek gelirse bunu açıkla.
+"""
+READ_ONLY_ACTION_REPLY = (
+    "Bu yönetici görünümü salt okunurdur; temsilciye aktarma veya iade gibi işlemler buradan "
+    "yapılamaz. Sipariş, kargo ve politika bilgileri hakkında soru sorabilirsiniz."
+)
+
+
+def build_system_prompt(now: datetime | None = None, read_only: bool = False) -> str:
     now = now or datetime.now(TURKEY_TIME)
-    return SYSTEM_PROMPT.format(today=now.strftime("%d.%m.%Y"))
+    prompt = SYSTEM_PROMPT.format(today=now.strftime("%d.%m.%Y"))
+    return prompt + READ_ONLY_NOTE if read_only else prompt

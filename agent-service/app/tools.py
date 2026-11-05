@@ -195,10 +195,15 @@ ESCALATE_SPEC: ToolSpec = {
 }
 
 TOOL_SPECS = [tool.spec for tool in TOOLS.values()] + [ESCALATE_SPEC]
+# Tools that change something. A read-only session is not offered them, and execute_tool
+# refuses them; the order API refuses the request as well.
+WRITE_TOOLS = {"create_return_request", ESCALATE_TOOL}
+READ_ONLY_TOOL_SPECS = [spec for spec in TOOL_SPECS if spec["name"] not in WRITE_TOOLS]
 
 # Answers about the order, not failures: "not shipped yet" or "too late to return" is what
 # the customer needed to know. Every other error code counts towards a handoff.
 OUTCOME_ERRORS = {
+    "read_only_session",
     "shipment_not_found",
     "order_not_delivered",
     "return_window_expired",
@@ -217,9 +222,11 @@ def failure_of(name: str, result: dict[str, Any]) -> str | None:
 
 
 async def execute_tool(
-    deps: ToolDeps, token: str, name: str, args: dict[str, Any]
+    deps: ToolDeps, token: str, name: str, args: dict[str, Any], read_only: bool = False
 ) -> dict[str, Any]:
     """Failures come back as data, which lets the model explain them to the customer."""
+    if read_only and name in WRITE_TOOLS:
+        return {"error": "read_only_session", "message": "this view cannot change anything"}
     tool = TOOLS.get(name)
     if tool is None:
         return {"error": "unknown_tool", "message": f"no tool named {name}"}

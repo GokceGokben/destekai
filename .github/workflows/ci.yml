@@ -1,0 +1,134 @@
+name: CI
+
+on:
+  pull_request:
+    # "labeled" lets adding run-evals start the evaluation on an open PR.
+    types: [opened, synchronize, reopened, labeled]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  order-api:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        # The same image as docker-compose.yml: migrations need pgvector.
+        image: pgvector/pgvector:0.8.7-pg16
+        env:
+          POSTGRES_USER: destekai
+          POSTGRES_PASSWORD: destekai
+          POSTGRES_DB: destekai_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U destekai -d destekai_test"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+    defaults:
+      run:
+        working-directory: order-api
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-go@v5.5.0
+        with:
+          go-version-file: order-api/go.mod
+          cache-dependency-path: order-api/go.sum
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+      - run: go vet ./...
+      - run: go test -count=1 ./...
+        env:
+          TEST_DATABASE_URL: postgres://destekai:destekai@localhost:5432/destekai_test?sslmode=disable
+
+  python:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: astral-sh/setup-uv@v6.4.3
+        with:
+          version: "0.11.14"
+      - name: Install
+        working-directory: agent-service
+        run: uv sync --frozen
+      - name: Lint agent-service
+        working-directory: agent-service
+        run: uv run ruff check . && uv run ruff format --check .
+      - name: Lint evals
+        run: |
+          uv run --project agent-service ruff check --config agent-service/pyproject.toml evals
+          uv run --project agent-service ruff format --check --config agent-service/pyproject.toml evals
+      - name: Test agent-service
+        working-directory: agent-service
+        run: uv run pytest -q
+      - name: Test evals
+        run: uv run --project agent-service pytest -q evals
+
+  frontend:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: "22.12.0"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit -p .
+      - run: npx vitest run
+
+  # Five scenarios against the whole stack. The free Gemini tier allows 20 requests per model
+  # a day and a run takes about 15, so it runs on demand: the run-evals label or a manual run.
+  mini-eval:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'run-evals')
+    needs: [order-api, python, frontend]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: astral-sh/setup-uv@v6.4.3
+        with:
+          version: "0.11.14"
+      - name: Write .env
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          test -n "$GEMINI_API_KEY" || (echo "Set the GEMINI_API_KEY repository secret." && exit 1)
+          cp .env.example .env
+          {
+            echo "POSTGRES_USER=destekai"
+            echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)"
+            echo "POSTGRES_DB=destekai"
+            echo "AGENT_DB_PASSWORD=$(openssl rand -hex 16)"
+            echo "JWT_SECRET=$(openssl rand -hex 32)"
+            echo "GEMINI_API_KEY=$GEMINI_API_KEY"
+          } >> .env
+      - name: Start the stack
+        # Not --wait: the one-shot policy indexer exits when done, which --wait reports as failure.
+        run: |
+          docker compose up -d --build
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:8000/health && exit 0
+            sleep 5
+          done
+          echo "agent-service did not become healthy" && exit 1
+      - name: Install
+        working-directory: agent-service
+        run: uv sync --frozen
+      - name: Evaluate five scenarios
+        run: uv run --project agent-service python -m evals.run --subset 5
+      - uses: actions/upload-artifact@v4.6.2
+        if: always()
+        with:
+          name: eval-report
+          path: evals/reports/
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail 200

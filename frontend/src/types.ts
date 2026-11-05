@@ -1,5 +1,11 @@
 // Mirrors the JSON of order-api and the SSE events of agent-service.
 
+export interface Admin {
+  id: string;
+  full_name: string;
+  email: string;
+}
+
 export interface Customer {
   id: string;
   full_name: string;
