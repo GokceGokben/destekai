@@ -268,3 +268,9 @@
 - **Decision:** nginx serves `evals/reports/latest.json`, mounted read-only into the frontend container, at `/reports/latest.json`; Vite serves the same file in development. The panel and the replay view are hash routes (`#/admin`, `#/admin/<scenario>`). Only a finished run replaces `latest.json`, and each run records the models it uses, so a resumed run or a rebuilt report keeps them.
 - **Alternatives:** An API endpoint in the agent or order service; a router library; building the report into the image.
 - **Why:** The report is a static file the evaluation already writes, so a new run appears without a rebuild or a new endpoint. Three screens do not need a router, and a hash survives a reload behind nginx's single `index.html`. The panel is open until Phase 7's admin login; the report holds only seed data. `@types/node` 22.20.5 is added for the Vite config's file read, as a type-only dev dependency.
+
+## 045: The full evaluation is spread over several days
+
+- **Decision:** The free tier allows 20 generate requests per model per day (`GenerateRequestsPerDayPerProjectPerModel-FreeTier`), read from the 429 response. A full run of 56 scenarios needs about 150-170 agent calls, so it runs as one run resumed daily with `--resume`, after the quota resets at midnight Pacific time. The runner waits out an agent 429 twice, restarting the scenario from a fresh conversation, before it stops. The 5-scenario subset fits in a day and is what CI will run.
+- **Alternatives:** Ollama for the simulator and judge (checked: no discrete GPU and 11 GB of free disk on the development machine, so slow and a weaker Turkish judge); a weaker agent model with a larger quota, which would measure a different agent; paid tier.
+- **Why:** It keeps the agent, simulator and judge models the run was designed for, and costs nothing but time. Results are appended per scenario, so a stop loses nothing.

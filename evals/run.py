@@ -23,9 +23,14 @@ from evals.judge import Judge
 from evals.llm import build_model
 from evals.report import REPORT_DIR, build_report, write_report
 from evals.runner import RateLimited, Runner, ScenarioResult
-from evals.scenario import load_scenarios, select
+from evals.scenario import Scenario, load_scenarios, select
 
 RUN_DIR = REPORT_DIR / "runs"
+# The agent gives up after two quick retries, which is right for a waiting customer but not
+# for a per-minute limit. The scenario restarts from a fresh conversation after this pause,
+# so no half-finished turn stays in the agent's memory.
+AGENT_RETRY_PAUSE_S = 65
+AGENT_RETRIES = 2
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -47,6 +52,18 @@ def load_results(path: Path) -> list[ScenarioResult]:
         return []
     lines = path.read_text(encoding="utf-8").splitlines()
     return [ScenarioResult.model_validate_json(line) for line in lines if line.strip()]
+
+
+async def run_with_retries(runner: Runner, scenario: Scenario) -> ScenarioResult:
+    for attempt in range(AGENT_RETRIES + 1):
+        try:
+            return await runner.run(scenario)
+        except RateLimited:
+            if attempt == AGENT_RETRIES:
+                raise
+            print(f"agent busy, retrying in {AGENT_RETRY_PAUSE_S}s ...", end=" ", flush=True)
+            await asyncio.sleep(AGENT_RETRY_PAUSE_S)
+    raise AssertionError("unreachable")
 
 
 def run_models(path: Path, settings: EvalSettings) -> dict[str, str]:
@@ -90,7 +107,7 @@ async def main(argv: list[str] | None = None) -> int:
         for number, scenario in enumerate(pending, start=1):
             print(f"[{number}/{len(pending)}] {scenario.id} ...", end=" ", flush=True)
             try:
-                result = await runner.run(scenario)
+                result = await run_with_retries(runner, scenario)
             except (RateLimited, RetryableLLMError) as exc:
                 # Each model has its own quota, so say which one ran out.
                 who = "agent" if isinstance(exc, RateLimited) else "simulator or judge"
@@ -102,6 +119,9 @@ async def main(argv: list[str] | None = None) -> int:
             print("ok" if result.success else "FAILED")
 
     results = [r for r in load_results(run_file) if r.id in {s.id for s in scenarios}]
+    if not results:
+        print("no finished scenarios yet; no report written")
+        return 1
     report = build_report(
         results,
         run_id,

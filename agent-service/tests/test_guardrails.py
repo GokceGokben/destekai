@@ -68,6 +68,21 @@ def test_numbers_that_fail_their_checks_and_order_data_stay_readable():
     assert mask_pii(text) == text
 
 
+def test_masking_keeps_arguments_that_formatters_unpack(caplog):
+    """uvicorn's access formatter unpacks the arguments itself; replacing them broke every
+    access log line."""
+    install_log_masking()
+    with caplog.at_level(logging.INFO):
+        logging.getLogger("uvicorn.access").info(
+            '%s - "%s %s HTTP/%s" %d', "127.0.0.1:5000", "GET", "/ara?tel=05321234567", "1.1", 200
+        )
+    record = caplog.records[-1]
+    client, method, path, version, status = record.args  # what uvicorn does
+    assert (client, method, version, status) == ("127.0.0.1:5000", "GET", "1.1", 200)
+    assert path == "/ara?tel=[TELEFON]"
+    assert record.getMessage() == '127.0.0.1:5000 - "GET /ara?tel=[TELEFON] HTTP/1.1" 200'
+
+
 def test_log_records_are_masked_whoever_logs_them(caplog):
     install_log_masking()
     install_log_masking()  # Installing twice must not wrap twice.

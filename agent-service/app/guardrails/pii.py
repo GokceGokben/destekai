@@ -53,6 +53,11 @@ def mask_pii(text: str) -> str:
     return _EMAIL.sub("[E-POSTA]", text)
 
 
+def _mask_value(value: object) -> object:
+    # Non-strings keep their type, so "%d" and the like still format.
+    return mask_pii(value) if isinstance(value, str) else value
+
+
 def install_log_masking() -> None:
     """Masks every log record at creation, whichever library logs it. A filter on our own
     loggers would miss uvicorn's and httpx's. Exception tracebacks are not masked, so the
@@ -63,8 +68,14 @@ def install_log_masking() -> None:
 
     def masking_factory(*args, **kwargs) -> logging.LogRecord:
         record = factory(*args, **kwargs)
-        record.msg = mask_pii(record.getMessage())
-        record.args = None
+        # Masked in place, not merged into the message: some formatters read the arguments
+        # themselves, e.g. uvicorn's access log unpacks (client, method, path, ...).
+        if isinstance(record.msg, str):
+            record.msg = mask_pii(record.msg)
+        if isinstance(record.args, tuple):
+            record.args = tuple(_mask_value(value) for value in record.args)
+        elif isinstance(record.args, dict):
+            record.args = {key: _mask_value(value) for key, value in record.args.items()}
         return record
 
     masking_factory.masks_pii = True  # type: ignore[attr-defined]
