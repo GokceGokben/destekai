@@ -1,0 +1,90 @@
+[
+  {
+    "id": "policy-return-window",
+    "category": "policy",
+    "customer_id": "CUS-1005",
+    "persona": "Elif, yeni bir müşteri. Henüz bir şey iade etmek istemiyor, sadece kuralı öğrenmek istiyor.",
+    "goal": "Ürünlerin kaç gün içinde iade edilebileceğini öğrenmek.",
+    "opening_message": "Aldığım ürünleri kaç gün içinde iade edebilirim?",
+    "expect": {"tools": {"required": ["search_policy"], "forbidden": ["create_return_request"]}},
+    "success_criteria": "Asistan teslimattan itibaren 14 gün kuralını politikaya dayanarak söyler.",
+    "max_turns": 3
+  },
+  {
+    "id": "policy-shipping-fee",
+    "category": "policy",
+    "customer_id": "CUS-1008",
+    "persona": "Can, ilk büyük alışverişini yapmadan önce kargo ücretini merak ediyor.",
+    "goal": "Kargonun ücretli olup olmadığını öğrenmek.",
+    "opening_message": "Kargo ücretli mi?",
+    "expect": {"tools": {"required": ["search_policy"]}},
+    "success_criteria": "Asistan 500 TL ve üzeri siparişlerde kargonun ücretsiz, altında 49,90 TL olduğunu politikaya dayanarak söyler.",
+    "max_turns": 3
+  },
+  {
+    "id": "policy-installments",
+    "category": "policy",
+    "customer_id": "CUS-1006",
+    "persona": "Burak, pahalı bir ürün almayı düşünüyor ve taksit yapılıp yapılmadığını soruyor.",
+    "goal": "Taksit seçeneklerini öğrenmek.",
+    "opening_message": "Taksit yapıyor musunuz?",
+    "expect": {"tools": {"required": ["search_policy"]}},
+    "success_criteria": "Asistan 750 TL ve üzeri alışverişlerde anlaşmalı kredi kartlarıyla 3, 6 veya 9 taksit yapılabildiğini ve banka kartıyla taksit olmadığını politikaya dayanarak söyler.",
+    "max_turns": 3
+  },
+  {
+    "id": "policy-warranty",
+    "category": "policy",
+    "customer_id": "CUS-1003",
+    "persona": "Zeynep, aldığı blender setinin garantisi olup olmadığını merak ediyor.",
+    "goal": "Elektronik ürünlerin garanti süresini öğrenmek.",
+    "opening_message": "Elektronik ürünlerin garantisi ne kadar?",
+    "expect": {"tools": {"required": ["search_policy"]}},
+    "success_criteria": "Asistan elektronik ürünlerin fatura tarihinden itibaren 2 yıl garantili olduğunu politikaya dayanarak söyler.",
+    "max_turns": 3
+  },
+  {
+    "id": "policy-refund-time",
+    "category": "policy",
+    "customer_id": "CUS-1007",
+    "persona": "Selin'in iadesi onaylandı ve parasının ne zaman hesabına geçeceğini merak ediyor.",
+    "goal": "Ücret iadesinin ne kadar sürdüğünü öğrenmek.",
+    "opening_message": "İade ettiğim ürünün parası ne zaman hesabıma geçer?",
+    "expect": {"tools": {"required": ["search_policy"]}},
+    "success_criteria": "Asistan ürün depoya ulaşıp kontrol edildikten sonra en geç 3 iş günü içinde ödeme yöntemine iade edildiğini politikaya dayanarak söyler; bankaya bağlı ek süre varsa politikadaki gibi aktarır.",
+    "max_turns": 3
+  },
+  {
+    "id": "policy-cash-on-delivery",
+    "category": "policy",
+    "customer_id": "CUS-1009",
+    "persona": "Deniz, kapıda ödemeyle sipariş vermek istiyor.",
+    "goal": "Kapıda ödeme şartlarını öğrenmek.",
+    "opening_message": "Kapıda ödeme yapabilir miyim?",
+    "expect": {"tools": {"required": ["search_policy"]}},
+    "success_criteria": "Asistan kapıda ödemenin 5.000 TL altındaki siparişlerde kullanılabildiğini ve hizmet bedelini politikaya dayanarak söyler.",
+    "max_turns": 3
+  },
+  {
+    "id": "policy-not-covered",
+    "category": "policy",
+    "customer_id": "CUS-1010",
+    "persona": "Ece, bir arkadaşına hediye alacak ve mağazanın hediye paketi yapıp yapmadığını soruyor.",
+    "goal": "Hediye paketi hizmeti olup olmadığını öğrenmek.",
+    "opening_message": "Siparişimi hediye paketi yaptırabilir miyim?",
+    "expect": {"tools": {"required": ["search_policy"]}},
+    "success_criteria": "Politikalarda hediye paketi bilgisi olmadığı için asistan bu konuda bilgisi olmadığını söyler; hediye paketi hizmeti olduğunu veya olmadığını uydurmaz.",
+    "max_turns": 3
+  },
+  {
+    "id": "policy-with-order",
+    "category": "policy",
+    "customer_id": "CUS-1006",
+    "persona": "Burak, 10 gün önce teslim aldığı DA-100016 siparişindeki tost makinesini iade edip edemeyeceğini öğrenmek istiyor ama henüz iade talebi açmak istemiyor; sadece bilgi alıyor.",
+    "goal": "DA-100016 siparişinin iade edilebilir olup olmadığını öğrenmek.",
+    "opening_message": "DA-100016'daki tost makinesini hâlâ iade edebilir miyim? Şimdilik sadece soruyorum.",
+    "expect": {"tools": {"required": ["get_order_status"], "forbidden": ["create_return_request"]}},
+    "success_criteria": "Asistan siparişin teslim tarihini ve 14 günlük iade kuralını birlikte değerlendirip iadenin hâlâ mümkün olduğunu söyler; müşteri istemediği için iade açmaz.",
+    "max_turns": 4
+  }
+]

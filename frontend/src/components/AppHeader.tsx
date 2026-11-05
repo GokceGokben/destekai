@@ -2,13 +2,18 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
+import { HREF } from "../route";
+
 import { Icon } from "./Icon";
 import { Logo } from "./Logo";
 import { ThemeToggle } from "./ThemeToggle";
 
-const NAV_ITEMS = ["Müşteri Desteği", "Yönetici Değerlendirme & Test Paneli"] as const;
+const NAV_ITEMS = [
+  { label: "Müşteri Desteği", href: HREF.support },
+  { label: "Yönetici Değerlendirme & Test Paneli", href: HREF.admin },
+] as const;
 
-export type NavItem = (typeof NAV_ITEMS)[number];
+export type NavItem = (typeof NAV_ITEMS)[number]["label"];
 
 interface Props {
   /** The page being shown; none on the login screen. */
@@ -25,9 +30,10 @@ export function AppHeader({ active, children }: Props) {
         <div className="flex items-center gap-space-lg">
           <Logo />
           <nav className="hidden xl:flex items-center gap-space-xs">
-            {NAV_ITEMS.map((label) => (
-              <span
+            {NAV_ITEMS.map(({ label, href }) => (
+              <a
                 key={label}
+                href={href}
                 aria-current={label === active ? "page" : undefined}
                 className={cn(
                   "px-space-md py-space-xs rounded-lg font-label-md text-label-md transition-all",
@@ -38,7 +44,7 @@ export function AppHeader({ active, children }: Props) {
               >
                 {/* Positioned so the label paints above the pattern's ::before layer. */}
                 <span className="relative">{label}</span>
-              </span>
+              </a>
             ))}
           </nav>
         </div>

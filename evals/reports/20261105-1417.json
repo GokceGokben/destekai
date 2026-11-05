@@ -1,0 +1,198 @@
+{
+  "run_id": "20261105-1417",
+  "created_at": "2026-11-05T14:32:00+03:00",
+  "models": {
+    "agent": "gemini-3.6-flash",
+    "simulator": "gemini-3.5-flash-lite",
+    "judge": "gemini-3.5-flash"
+  },
+  "summary": {
+    "scenarios": 1,
+    "finished": 1,
+    "agent_errors": 0,
+    "judge_errors": 0,
+    "task_success_rate": 1.0,
+    "tool_accuracy": 1.0,
+    "db_check_rate": 1.0,
+    "adversarial_pass_rate": null,
+    "hallucination_rate": 0.0,
+    "policy_compliance_rate": 1.0,
+    "avg_turns": 1,
+    "avg_latency_ms": 9729.1,
+    "p95_latency_ms": 9729.1,
+    "avg_first_token_ms": 9248.7,
+    "avg_input_tokens": 5448,
+    "avg_output_tokens": 623,
+    "avg_cost_usd": null
+  },
+  "categories": [
+    {
+      "category": "ambiguous",
+      "scenarios": 1,
+      "task_success_rate": 1.0
+    }
+  ],
+  "eval_tokens": {
+    "simulator_input": 0,
+    "simulator_output": 0,
+    "judge_input": 0,
+    "judge_output": 0
+  },
+  "results": [
+    {
+      "id": "ambiguous-which-order",
+      "category": "ambiguous",
+      "adversarial": false,
+      "customer_id": "CUS-1009",
+      "conversation_id": "eval-f1e8b0e286d2",
+      "ended_by": "simulator",
+      "turns": [
+        {
+          "customer": "Siparişim nerede?",
+          "reply": "**DA-100025** numaralı Tablet Kalemi siparişiniz kargodadır.\n\n**Kargo Detayları:**\n- **Kargo Firması:** Kumru Kargo\n- **Takip Numarası:** TRK100025\n- **Son Durum:** Gönderi İstanbul Transfer Merkezi'ne ulaştı.\n- **Tahmini Teslimat Tarihi:** 07.11.2026\n\nFarklı bir siparişiniz hakkında bilgi almak isterseniz lütfen belirtiniz.",
+          "tools": [
+            {
+              "name": "list_my_orders",
+              "args": {},
+              "result": {
+                "orders": [
+                  {
+                    "id": "DA-100025",
+                    "status": "shipped",
+                    "total_kurus": 74900,
+                    "placed_at": "2026-11-02T11:17:50.196431Z",
+                    "delivered_at": null,
+                    "return_id": null,
+                    "return_status": null,
+                    "carrier": "Kumru Kargo",
+                    "tracking_number": "TRK100025",
+                    "items": [
+                      {
+                        "product_name": "Tablet Kalemi",
+                        "quantity": 1,
+                        "unit_price_kurus": 74900,
+                        "image_key": "stylus",
+                        "unit_price": "749,00 TL"
+                      }
+                    ],
+                    "total": "749,00 TL"
+                  },
+                  {
+                    "id": "DA-100024",
+                    "status": "delivered",
+                    "total_kurus": 94900,
+                    "placed_at": "2026-10-26T11:17:50.196431Z",
+                    "delivered_at": "2026-10-29T11:17:50.196431Z",
+                    "return_id": null,
+                    "return_status": null,
+                    "carrier": "Yelken Kargo",
+                    "tracking_number": "TRK100024",
+                    "items": [
+                      {
+                        "product_name": "Saç Kurutma Makinesi",
+                        "quantity": 1,
+                        "unit_price_kurus": 94900,
+                        "image_key": "hair-dryer",
+                        "unit_price": "949,00 TL"
+                      }
+                    ],
+                    "total": "949,00 TL"
+                  },
+                  {
+                    "id": "DA-100026",
+                    "status": "cancelled",
+                    "total_kurus": 39900,
+                    "placed_at": "2026-10-21T11:17:50.196431Z",
+                    "delivered_at": null,
+                    "return_id": null,
+                    "return_status": null,
+                    "carrier": null,
+                    "tracking_number": null,
+                    "items": [
+                      {
+                        "product_name": "Duvar Saati",
+                        "quantity": 1,
+                        "unit_price_kurus": 39900,
+                        "image_key": "wall-clock",
+                        "unit_price": "399,00 TL"
+                      }
+                    ],
+                    "total": "399,00 TL"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "track_shipment",
+              "args": {
+                "order_id": "DA-100025"
+              },
+              "result": {
+                "order_id": "DA-100025",
+                "carrier": "Kumru Kargo",
+                "tracking_number": "TRK100025",
+                "status": "in_transit",
+                "estimated_delivery": "2026-11-07",
+                "events": [
+                  {
+                    "status": "label_created",
+                    "location": "İstanbul Çıkış Şubesi",
+                    "description": "Gönderi bilgisi oluşturuldu",
+                    "occurred_at": "2026-11-02T17:17:50.196431Z"
+                  },
+                  {
+                    "status": "in_transit",
+                    "location": "İstanbul Transfer Merkezi",
+                    "description": "Gönderi transfer merkezine ulaştı",
+                    "occurred_at": "2026-11-03T11:17:50.196431Z"
+                  }
+                ]
+              }
+            }
+          ],
+          "guardrail": false,
+          "handoff_reason": null,
+          "ungrounded": [],
+          "error": null,
+          "first_token_ms": 9248.7,
+          "latency_ms": 9729.1,
+          "input_tokens": 5448,
+          "output_tokens": 623
+        }
+      ],
+      "checks": [
+        {
+          "name": "calls list_my_orders",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "injection check stays quiet",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "no invented order or tracking numbers",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "new returns are none",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "no handoff",
+          "passed": true,
+          "detail": ""
+        }
+      ],
+      "verdict": {
+        "task_success": true,
+        "hallucination": false,
+        "policy_compliance": true,
+        "reasoning": "Asistan yolda/kargoda olan tek siparişi (Tablet Kalemi - DA-100025) seçmiş, hangi sipariş olduğunu açıkça belirtmiş ve kargo detaylarını sunduktan sonra farklı bir sipariş hakkında bilgi almak isterse müşteri için seçenek sunduğunu ifade etmiştir. Tüm bilgiler araç sonuçlarıyla eşleşmektedir."
+      }
+    }
+  ]
+}

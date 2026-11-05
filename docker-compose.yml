@@ -84,6 +84,9 @@ services:
     build: ./frontend
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-3000}:80"
+    # The admin panel reads the latest evaluation report; a new run shows up without a rebuild.
+    volumes:
+      - ./evals/reports:/usr/share/nginx/reports:ro
     depends_on:
       order-api:
         condition: service_healthy

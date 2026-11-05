@@ -238,3 +238,33 @@
 - **Decision:** After each reply, order numbers and tracking codes that no tool result and no customer message contained are reported as a `grounding_violation` event, logged, and counted as a failed turn.
 - **Alternatives:** Buffering the reply and checking it before it is shown.
 - **Why:** Buffering would end token streaming. The system prompt already forbids invented data, so this check measures how often the rule is broken and pushes a repeat offender towards a handoff. The Phase 6 judge covers invented facts that are not numbers.
+
+## 040: Evaluation reuses the agent service's environment and LLM client
+
+- **Decision:** `evals/` has no dependency list of its own. It runs with `uv run --project agent-service` and imports the agent's `LLMClient`, Gemini/Ollama clients, SSE reader and dev token helper.
+- **Alternatives:** A separate package with its own lock file and model client; packaging the agent service so that `evals` can depend on it.
+- **Why:** One provider interface, as the project requires, and one set of pinned versions. The cost is one explicit `sys.path` line in `evals/__init__.py`.
+
+## 041: Scenarios in JSON, checked against the seed by tests
+
+- **Decision:** 56 scenarios in one JSON file per category, 16 of them adversarial. Each states its tools (required, one-of, forbidden), whether the injection check must fire, the expected handoff, the one order that may get a return, and text that must never appear. A strict schema rejects unknown keys. Tests check every scenario against the seed data and the guardrail rules, so a scenario cannot expect something impossible.
+- **Alternatives:** Scenarios in Python; free-text expectations left to the judge.
+- **Why:** Data that a reviewer can read without the code. Anything that can be checked from events or the database is checked there, and the judge only scores what needs reading.
+
+## 042: Success needs both the deterministic checks and the judge
+
+- **Decision:** A scenario succeeds only if every deterministic check passes and the judge says the task succeeded. The database, reset to the seed before each scenario, decides whether a return or handoff happened, not the agent's words. Hallucination and policy compliance are reported separately from success.
+- **Alternatives:** Judge only; checks only.
+- **Why:** The judge can be fooled by a confident reply and the checks cannot read tone or correctness of an explanation. Requiring both makes a pass harder to fake.
+
+## 043: Simulator and judge on other models, with patient retries and resumable runs
+
+- **Decision:** `SIMULATOR_MODEL` (gemini-3.5-flash-lite) and `JUDGE_MODEL` (gemini-3.5-flash) are set apart from the agent's model. Their clients retry up to five times and wait up to a minute; the agent keeps its quick two retries. Results are appended per scenario to `reports/runs/<id>.jsonl`, and `--resume` skips finished scenarios. `--subset N` is deterministic and starts with the adversarial categories.
+- **Alternatives:** Everything on the agent's model; several API keys.
+- **Why:** Free-tier quotas are per model and per minute. A judge from another model also avoids a model grading its own replies. Newer models (3.7, 3.8) were not usable on the free tier when this was set up.
+
+## 044: The admin panel reads the latest report file
+
+- **Decision:** nginx serves `evals/reports/latest.json`, mounted read-only into the frontend container, at `/reports/latest.json`; Vite serves the same file in development. The panel and the replay view are hash routes (`#/admin`, `#/admin/<scenario>`). Only a finished run replaces `latest.json`, and each run records the models it uses, so a resumed run or a rebuilt report keeps them.
+- **Alternatives:** An API endpoint in the agent or order service; a router library; building the report into the image.
+- **Why:** The report is a static file the evaluation already writes, so a new run appears without a rebuild or a new endpoint. Three screens do not need a router, and a hash survives a reload behind nginx's single `index.html`. The panel is open until Phase 7's admin login; the report holds only seed data. `@types/node` 22.20.5 is added for the Vite config's file read, as a type-only dev dependency.

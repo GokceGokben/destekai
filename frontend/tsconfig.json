@@ -13,7 +13,7 @@
     "skipLibCheck": true,
     "noEmit": true,
     "paths": { "@/*": ["./src/*"] },
-    "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"]
+    "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom", "node"]
   },
   "include": ["src", "vite.config.ts"]
 }

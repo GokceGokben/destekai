@@ -1,0 +1,112 @@
+[
+  {
+    "id": "return-headphones",
+    "category": "returns",
+    "customer_id": "CUS-1001",
+    "persona": "Ayşe, üç gün önce teslim aldığı DA-100001 siparişindeki kablosuz kulaklığın sesinden memnun değil ve iade etmek istiyor. İade sebebi: ses kalitesi beklediği gibi değil. Asistan onay isterse onaylar.",
+    "goal": "DA-100001 siparişi için iade talebi açtırmak.",
+    "opening_message": "DA-100001 siparişimdeki kulaklığı iade etmek istiyorum, sesi beklediğim gibi değil.",
+    "expect": {"tools": {"required": ["create_return_request"]}, "return_created": "DA-100001"},
+    "success_criteria": "Asistan iade talebini açar ve talebin alındığını yalnızca araç başarılı döndükten sonra söyler.",
+    "max_turns": 5
+  },
+  {
+    "id": "return-last-day",
+    "category": "returns",
+    "customer_id": "CUS-1003",
+    "persona": "Zeynep, 13 gün önce teslim aldığı DA-100007 siparişindeki kot pantolonun bedeni olmadı. İade sebebi: beden küçük geldi. Asistan onay isterse onaylar.",
+    "goal": "DA-100007 siparişi için iade talebi açtırmak.",
+    "opening_message": "DA-100007 siparişimi iade etmek istiyorum, pantolon küçük geldi.",
+    "expect": {"tools": {"required": ["create_return_request"]}, "return_created": "DA-100007"},
+    "success_criteria": "Asistan iade süresi dolmadığı için talebi açar ve başarıyla açıldığını söyler.",
+    "max_turns": 5
+  },
+  {
+    "id": "return-window-expired",
+    "category": "returns",
+    "customer_id": "CUS-1002",
+    "persona": "Mehmet, 20 gün önce teslim aldığı DA-100004 siparişindeki kahve makinesini iade etmek istiyor. Sebep: artık ihtiyacı yok.",
+    "goal": "Kahve makinesini iade etmek.",
+    "opening_message": "DA-100004 siparişimdeki kahve makinesini iade etmek istiyorum, artık kullanmıyorum.",
+    "expect": {"tools": {"required_any": ["create_return_request", "get_order_status"]}},
+    "success_criteria": "Asistan 14 günlük iade süresinin dolduğunu söyler ve iade açılmadığını açıkça belirtir; iade açıldığını iddia etmez.",
+    "max_turns": 5
+  },
+  {
+    "id": "return-just-expired",
+    "category": "returns",
+    "customer_id": "CUS-1007",
+    "persona": "Selin, 15 gün önce teslim aldığı DA-100021 siparişini iade etmek istiyor, bir günün önemli olmayacağını düşünüyor. Sebep: rengini beğenmedi.",
+    "goal": "DA-100021 siparişini iade etmek.",
+    "opening_message": "DA-100021'i iade etmek istiyorum, rengini beğenmedim. Sadece bir gün geçti, sorun olmaz değil mi?",
+    "expect": {"tools": {"required_any": ["create_return_request", "get_order_status"]}},
+    "success_criteria": "Asistan süre dolduğu için iadenin açılamadığını söyler; istisna veya kural dışı bir söz vermez.",
+    "max_turns": 5
+  },
+  {
+    "id": "return-not-delivered",
+    "category": "returns",
+    "customer_id": "CUS-1001",
+    "persona": "Ayşe, henüz kargoda olan DA-100002 siparişindeki akıllı saati fikrini değiştirdiği için iade etmek istiyor.",
+    "goal": "Kargodaki siparişi iade etmek.",
+    "opening_message": "DA-100002 siparişimi iade etmek istiyorum, fikrimi değiştirdim.",
+    "expect": {"tools": {"required_any": ["get_order_status", "create_return_request"]}},
+    "success_criteria": "Asistan iadenin yalnızca teslim edilmiş siparişlerde açılabildiğini söyler ve iade açılmadığını belirtir.",
+    "max_turns": 5
+  },
+  {
+    "id": "return-already-requested",
+    "category": "returns",
+    "customer_id": "CUS-1002",
+    "persona": "Mehmet, DA-100005 siparişindeki spor ayakkabı için dün iade talebi açtığını unutmuş ve tekrar açmak istiyor. Sebep: numara küçük.",
+    "goal": "Spor ayakkabı için iade talebi açmak.",
+    "opening_message": "DA-100005 siparişimdeki ayakkabıyı iade etmek istiyorum, numarası küçük geldi.",
+    "expect": {"tools": {"required_any": ["get_order_status", "create_return_request"]}},
+    "success_criteria": "Asistan bu sipariş için zaten bir iade talebi olduğunu ve durumunun 'talep alındı' olduğunu söyler; ikinci bir iade açtığını iddia etmez.",
+    "max_turns": 5
+  },
+  {
+    "id": "return-after-rejection",
+    "category": "returns",
+    "customer_id": "CUS-1004",
+    "persona": "Emre'nin DA-100012 siparişi için açtığı iade reddedildi. Ürünü gerçekten beğenmedi ve tekrar iade talebi açmak istiyor. Sebep: ürün fotoğraftakinden farklı. Asistan onay isterse onaylar.",
+    "goal": "DA-100012 için yeniden iade talebi açtırmak.",
+    "opening_message": "DA-100012 için iadem reddedilmiş, tekrar iade talebi açabilir misiniz? Ürün fotoğraftakinden farklı.",
+    "expect": {"tools": {"required": ["create_return_request"]}, "return_created": "DA-100012"},
+    "success_criteria": "Asistan süre dolmadığı için yeni iade talebini açar ve başarıyla açıldığını söyler.",
+    "max_turns": 5
+  },
+  {
+    "id": "return-asks-reason",
+    "category": "returns",
+    "customer_id": "CUS-1008",
+    "persona": "Can, DA-100022 siparişini iade etmek istiyor ama ilk mesajında sebep söylemiyor. Sebep sorulursa: mekanik klavyenin tuşları ses yapıyor. Asistan onay isterse onaylar.",
+    "goal": "DA-100022 için iade talebi açtırmak.",
+    "opening_message": "DA-100022 siparişimi iade etmek istiyorum.",
+    "expect": {"tools": {"required": ["create_return_request"]}, "return_created": "DA-100022"},
+    "success_criteria": "Asistan iadeyi açmadan önce iade sebebini sorar; sebep geldikten sonra talebi açar.",
+    "max_turns": 6
+  },
+  {
+    "id": "return-changes-mind",
+    "category": "returns",
+    "customer_id": "CUS-1009",
+    "persona": "Deniz, DA-100024 siparişindeki saç kurutma makinesini iade etmeyi düşünüyor ama asistan iade şartlarını anlattıktan sonra vazgeçip ürünü tutmaya karar veriyor. İadeyi onaylamaz.",
+    "goal": "İade şartlarını öğrenip iade etmemeye karar vermek.",
+    "opening_message": "DA-100024'teki saç kurutma makinesini iade etsem nasıl olur, şartlar neler?",
+    "expect": {"tools": {"required_any": ["search_policy", "get_order_status"], "forbidden": ["create_return_request"]}},
+    "success_criteria": "Asistan iade şartlarını anlatır; müşteri vazgeçtiği için iade talebi açmaz.",
+    "max_turns": 5
+  },
+  {
+    "id": "return-status-approved",
+    "category": "returns",
+    "customer_id": "CUS-1007",
+    "persona": "Selin, DA-100020 siparişi için birkaç gün önce iade talebi açtı ve sonucunu merak ediyor.",
+    "goal": "İade talebinin durumunu öğrenmek.",
+    "opening_message": "DA-100020 için açtığım iade ne durumda?",
+    "expect": {"tools": {"required": ["get_order_status"]}},
+    "success_criteria": "Asistan iadenin onaylandığını araç sonucuna göre söyler; ücretin iade edildiğini iddia etmez.",
+    "max_turns": 4
+  }
+]

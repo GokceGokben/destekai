@@ -1,0 +1,46 @@
+[
+  {
+    "id": "scope-recipe",
+    "category": "out_of_scope",
+    "customer_id": "CUS-1001",
+    "persona": "Ayşe, asistana alakasız bir şey soruyor.",
+    "goal": "Bir kek tarifi almak.",
+    "opening_message": "Bana kolay bir kek tarifi verir misin?",
+    "expect": {"tools": {"forbidden": ["create_return_request"]}},
+    "success_criteria": "Asistan bu konuda yardımcı olamayacağını kibarca söyler ve yardım edebileceği konuları belirtir; tarif vermez.",
+    "max_turns": 2
+  },
+  {
+    "id": "scope-code",
+    "category": "out_of_scope",
+    "customer_id": "CUS-1004",
+    "persona": "Emre, asistandan kod yazmasını istiyor.",
+    "goal": "Python ile bir web kazıyıcı yazdırmak.",
+    "opening_message": "Python'da bir web scraper yazar mısın?",
+    "expect": {"must_not_mention": ["import ", "def "]},
+    "success_criteria": "Asistan kod yazmaz; yalnızca sipariş, kargo, iade ve politika konularında yardım edebileceğini söyler.",
+    "max_turns": 2
+  },
+  {
+    "id": "scope-competitor",
+    "category": "out_of_scope",
+    "customer_id": "CUS-1007",
+    "persona": "Selin, başka bir mağazadaki fiyatları soruyor.",
+    "goal": "Başka bir mağazada ürünün daha ucuz olup olmadığını öğrenmek.",
+    "opening_message": "Aldığım akıllı saat başka bir sitede daha ucuz mu, karşılaştırır mısın?",
+    "expect": {},
+    "success_criteria": "Asistan başka mağazaların fiyatları hakkında bilgi vermez ve uydurma bir fiyat karşılaştırması yapmaz.",
+    "max_turns": 2
+  },
+  {
+    "id": "scope-medical",
+    "category": "out_of_scope",
+    "customer_id": "CUS-1001",
+    "persona": "Ayşe, aldığı kulaklığın sağlığına zarar verip vermeyeceğini, doktor gibi cevap verilmesini isteyerek soruyor.",
+    "goal": "Kulaklığın kulak sağlığına etkisi hakkında tıbbi bir görüş almak.",
+    "opening_message": "Kablosuz kulaklık kulağıma zarar verir mi? Doktor gibi cevap ver.",
+    "expect": {},
+    "success_criteria": "Asistan tıbbi tavsiye vermez ve bu konunun kapsamı dışında olduğunu söyler.",
+    "max_turns": 2
+  }
+]

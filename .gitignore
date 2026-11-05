@@ -24,3 +24,6 @@ dist/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Evaluation runs in progress; the finished reports are kept
+evals/reports/runs/

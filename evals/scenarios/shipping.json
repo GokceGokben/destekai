@@ -1,0 +1,68 @@
+[
+  {
+    "id": "ship-out-for-delivery",
+    "category": "shipping",
+    "customer_id": "CUS-1003",
+    "persona": "Zeynep, DA-100008 numaralı siparişle bir blender seti aldı ve bugün evde olup olmaması gerektiğini merak ediyor.",
+    "goal": "Kargonun nerede olduğunu öğrenmek.",
+    "opening_message": "DA-100008 kargom nerede, bugün gelir mi?",
+    "expect": {"tools": {"required": ["track_shipment"]}},
+    "success_criteria": "Asistan kargo hareketlerini araç sonucuna göre anlatır; araç sonucunda olmayan bir saat veya kesin teslim sözü vermez.",
+    "max_turns": 4
+  },
+  {
+    "id": "ship-delayed-chair",
+    "category": "shipping",
+    "customer_id": "CUS-1005",
+    "persona": "Elif, DA-100014 numaralı siparişle bir ofis koltuğu aldı. Bir haftadır bekliyor, biraz endişeli ama kibar.",
+    "goal": "Gecikmenin nedenini ve ne yapabileceğini öğrenmek.",
+    "opening_message": "DA-100014 siparişim bir haftadır gelmedi, ne oldu?",
+    "expect": {"tools": {"required": ["track_shipment"]}, "handoff": "optional"},
+    "success_criteria": "Asistan kargo durumunu araç sonucuna göre söyler ve gecikme için politikaya dayalı bir yol (kargo firmasınca araştırılması, destek ekibine başvuru veya temsilciye devir) sunar; uydurma bir teslim tarihi vermez. Temsilciye devretmesi de başarı sayılır.",
+    "max_turns": 6
+  },
+  {
+    "id": "ship-label-only",
+    "category": "shipping",
+    "customer_id": "CUS-1010",
+    "persona": "Ece, dün verdiği DA-100029 siparişinin kargo takibini yapmak istiyor.",
+    "goal": "Kargonun nerede olduğunu öğrenmek.",
+    "opening_message": "DA-100029 kargom ne durumda?",
+    "expect": {"tools": {"required": ["track_shipment"]}},
+    "success_criteria": "Asistan kargo bilgisini ve olayları araç sonucuna göre verir; henüz yola çıkmamışsa bunu söyler.",
+    "max_turns": 4
+  },
+  {
+    "id": "ship-not-shipped-yet",
+    "category": "shipping",
+    "customer_id": "CUS-1006",
+    "persona": "Burak, birkaç saat önce DA-100018 numaralı siparişi verdi ve takip numarası istiyor.",
+    "goal": "Takip numarasını almak.",
+    "opening_message": "DA-100018 siparişimin kargo takip numarası nedir?",
+    "expect": {"tools": {"required_any": ["track_shipment", "get_order_status"]}},
+    "success_criteria": "Asistan siparişin henüz kargoya verilmediğini, bu yüzden takip numarası olmadığını söyler; takip numarası uydurmaz.",
+    "max_turns": 4
+  },
+  {
+    "id": "ship-which-carrier",
+    "category": "shipping",
+    "customer_id": "CUS-1009",
+    "persona": "Deniz, DA-100025 numaralı siparişinin hangi kargo firmasıyla geleceğini bilmek istiyor.",
+    "goal": "Kargo firmasını öğrenmek.",
+    "opening_message": "DA-100025 hangi kargo firmasıyla geliyor?",
+    "expect": {"tools": {"required": ["track_shipment"]}},
+    "success_criteria": "Asistan kargo firmasını araç sonucundaki adla verir.",
+    "max_turns": 3
+  },
+  {
+    "id": "ship-tracking-number",
+    "category": "shipping",
+    "customer_id": "CUS-1007",
+    "persona": "Selin, DA-100019 numaralı siparişin takip numarasını kargo firmasının sitesinde kullanmak istiyor.",
+    "goal": "Takip numarasını almak.",
+    "opening_message": "DA-100019 için takip numarasını alabilir miyim?",
+    "expect": {"tools": {"required": ["track_shipment"]}},
+    "success_criteria": "Asistan takip numarasını araç sonucundaki değerle aynı şekilde verir.",
+    "max_turns": 3
+  }
+]

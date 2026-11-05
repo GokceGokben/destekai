@@ -1,0 +1,79 @@
+[
+  {
+    "id": "status-shipped-watch",
+    "category": "order_status",
+    "customer_id": "CUS-1001",
+    "persona": "Ayşe, sakin ve kibar bir müşteri. İki gün önce DA-100002 numaralı siparişle bir akıllı saat aldı.",
+    "goal": "Akıllı saatinin şu an hangi aşamada olduğunu öğrenmek.",
+    "opening_message": "Merhaba, DA-100002 numaralı siparişim ne durumda?",
+    "expect": {"tools": {"required_any": ["get_order_status", "track_shipment"]}},
+    "success_criteria": "Asistan siparişin kargoda olduğunu araç sonucuna dayanarak söyler; araç sonucunda olmayan bir teslim tarihi uydurmaz.",
+    "max_turns": 4
+  },
+  {
+    "id": "status-preparing-tshirt",
+    "category": "order_status",
+    "customer_id": "CUS-1001",
+    "persona": "Ayşe, birkaç saat önce DA-100003 numaralı siparişle üç tişört aldı ve ne zaman kargoya verileceğini merak ediyor.",
+    "goal": "Tişört siparişinin durumunu ve kargoya ne zaman verileceğini öğrenmek.",
+    "opening_message": "DA-100003 siparişim ne zaman kargoya verilir?",
+    "expect": {"tools": {"required": ["get_order_status"]}},
+    "success_criteria": "Asistan siparişin hazırlandığını söyler. Kargoya verilme süresinden bahsederse bunu kargo politikasına (1-2 iş günü) dayandırır, kesin bir tarih uydurmaz.",
+    "max_turns": 4
+  },
+  {
+    "id": "status-no-order-number",
+    "category": "order_status",
+    "customer_id": "CUS-1004",
+    "persona": "Emre, sipariş numaralarını hatırlamıyor. Bir bluetooth hoparlör ve bir sırt çantası almıştı.",
+    "goal": "Tüm siparişlerinin durumunu öğrenmek.",
+    "opening_message": "Siparişlerim ne durumda acaba? Numaralarını hatırlamıyorum.",
+    "expect": {"tools": {"required": ["list_my_orders"]}},
+    "success_criteria": "Asistan list_my_orders ile siparişleri bulur ve her birinin durumunu doğru Türkçe karşılığıyla söyler.",
+    "max_turns": 4
+  },
+  {
+    "id": "status-cancelled-lamp",
+    "category": "order_status",
+    "customer_id": "CUS-1002",
+    "persona": "Mehmet, DA-100006 numaralı siparişle bir masa lambası almıştı ve hâlâ gelmediğini düşünüyor.",
+    "goal": "Masa lambasının neden gelmediğini öğrenmek.",
+    "opening_message": "DA-100006 numaralı masa lambası siparişim hâlâ gelmedi, nerede?",
+    "expect": {"tools": {"required": ["get_order_status"]}},
+    "success_criteria": "Asistan siparişin iptal edildiğini araç sonucuna dayanarak söyler; kargoda olduğunu veya geleceğini iddia etmez.",
+    "max_turns": 4
+  },
+  {
+    "id": "status-latest-order",
+    "category": "order_status",
+    "customer_id": "CUS-1010",
+    "persona": "Ece, birkaç siparişi olan bir müşteri. En son verdiği siparişi merak ediyor ama numarasını bilmiyor.",
+    "goal": "En son siparişinin durumunu öğrenmek.",
+    "opening_message": "En son verdiğim sipariş ne durumda?",
+    "expect": {"tools": {"required": ["list_my_orders"]}},
+    "success_criteria": "Asistan siparişleri listeler ve en son siparişin (hazırlanıyor durumundaki) durumunu doğru söyler ya da hangisini kastettiğini sorar.",
+    "max_turns": 4
+  },
+  {
+    "id": "status-unknown-number",
+    "category": "order_status",
+    "customer_id": "CUS-1005",
+    "persona": "Elif, sipariş numarasını yanlış yazıyor: DA-199999. Doğru numarası DA-100014; asistan kontrol etmesini isterse doğru numarayı verir.",
+    "goal": "Ofis koltuğu siparişinin durumunu öğrenmek.",
+    "opening_message": "DA-199999 numaralı siparişim nerede?",
+    "expect": {"tools": {"required": ["get_order_status"]}},
+    "success_criteria": "Asistan DA-199999 için sipariş bulunamadığını söyler ve numarayı kontrol etmesini ister; doğru numara gelince durumu araç sonucuna göre verir.",
+    "max_turns": 5
+  },
+  {
+    "id": "status-order-total",
+    "category": "order_status",
+    "customer_id": "CUS-1003",
+    "persona": "Zeynep, DA-100007 numaralı siparişte bir kot pantolon ve bir deri kemer aldı. Ne kadar ödediğini hatırlamıyor.",
+    "goal": "DA-100007 siparişinin toplam tutarını öğrenmek.",
+    "opening_message": "DA-100007 siparişimin toplam tutarı neydi?",
+    "expect": {"tools": {"required": ["get_order_status"]}},
+    "success_criteria": "Asistan toplam tutarı araç sonucundaki değerle (1.398,00 TL) aynı şekilde verir; hesaplama yapıp farklı bir tutar söylemez.",
+    "max_turns": 3
+  }
+]

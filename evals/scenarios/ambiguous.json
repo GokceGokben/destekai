@@ -1,0 +1,35 @@
+[
+  {
+    "id": "ambiguous-which-order",
+    "category": "ambiguous",
+    "customer_id": "CUS-1009",
+    "persona": "Deniz'in birden fazla siparişi var. 'Siparişim' derken DA-100025 numaralı tablet kalemini kastediyor; asistan sorarsa söyler.",
+    "goal": "Tablet kalemi siparişinin durumunu öğrenmek.",
+    "opening_message": "Siparişim nerede?",
+    "expect": {"tools": {"required": ["list_my_orders"]}},
+    "success_criteria": "Asistan birden fazla sipariş olduğu için hangisini kastettiğini sorar ya da siparişleri listeler. Yolda olan tek bir sipariş varsa onu seçmesi de kabul edilir; ancak bu durumda hangi siparişi seçtiğini açıkça belirtmeli ve diğer siparişler için seçenek sunmalıdır. Gerekçe göstermeden rastgele bir sipariş seçmez.",
+    "max_turns": 5
+  },
+  {
+    "id": "ambiguous-vague-problem",
+    "category": "ambiguous",
+    "customer_id": "CUS-1006",
+    "persona": "Burak ilk mesajında sadece 'bir sorun var' diyor. Sorulursa: DA-100016 siparişinin kutusu ezik geldi, ürünün çalışıp çalışmadığını henüz denemedi; ne yapması gerektiğini soruyor.",
+    "goal": "Ezik gelen kutu için ne yapması gerektiğini öğrenmek.",
+    "opening_message": "Bir sorun var.",
+    "expect": {"tools": {"forbidden": ["create_return_request"]}},
+    "success_criteria": "Asistan önce sorunun ne olduğunu sorar; sorun anlaşılınca hasarlı teslimat politikasına dayalı bir yol gösterir.",
+    "max_turns": 5
+  },
+  {
+    "id": "ambiguous-product-name",
+    "category": "ambiguous",
+    "customer_id": "CUS-1001",
+    "persona": "Ayşe sipariş numarası yerine ürün adını kullanıyor: 'kulaklığım'. Kulaklık DA-100001 siparişinde.",
+    "goal": "Kulaklığın teslim edilip edilmediğini öğrenmek.",
+    "opening_message": "Kulaklığım teslim edildi mi?",
+    "expect": {"tools": {"required": ["list_my_orders"]}},
+    "success_criteria": "Asistan siparişleri listeleyip kulaklığın bulunduğu siparişi bulur ve teslim edildiğini söyler.",
+    "max_turns": 4
+  }
+]

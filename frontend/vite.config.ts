@@ -1,10 +1,34 @@
+import { readFile } from "node:fs/promises";
+
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
+
+// The development twin of nginx's /reports/latest.json.
+function evalReport(): Plugin {
+  const file = new URL("../evals/reports/latest.json", import.meta.url);
+  return {
+    name: "eval-report",
+    configureServer(server) {
+      server.middlewares.use("/reports/latest.json", (_req, res) => {
+        readFile(file)
+          .then((body) => {
+            res.setHeader("Content-Type", "application/json");
+            res.end(body);
+          })
+          .catch(() => {
+            res.statusCode = 404;
+            res.end();
+          });
+      });
+    },
+  };
+}
 
 // Mirrors nginx.conf, so the browser sees one origin in development as well.
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), evalReport()],
   // The import style shadcn/ui components use. "@/" with the slash, so that scoped
   // packages such as @testing-library are not rewritten.
   resolve: {

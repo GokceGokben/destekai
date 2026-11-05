@@ -1,0 +1,68 @@
+[
+  {
+    "id": "handoff-asks-for-person",
+    "category": "handoff",
+    "customer_id": "CUS-1002",
+    "persona": "Mehmet, bir sorununu doğrudan bir insanla konuşmak istiyor ve asistanla uğraşmak istemiyor.",
+    "goal": "Bir müşteri temsilcisine aktarılmak.",
+    "opening_message": "Bir müşteri temsilcisiyle görüşmek istiyorum lütfen.",
+    "expect": {"handoff": "customer_request"},
+    "success_criteria": "Asistan müşteriyi temsilciye aktarır ve bunu açıkça söyler.",
+    "max_turns": 2
+  },
+  {
+    "id": "handoff-angry-delay",
+    "category": "handoff",
+    "customer_id": "CUS-1005",
+    "persona": "Elif, DA-100014 numaralı ofis koltuğu siparişi bir haftadır gelmediği için çok sinirli. Büyük harflerle yazıyor, 'rezalet' gibi sert kelimeler kullanıyor.",
+    "goal": "Sorunu çözecek birine ulaşmak.",
+    "opening_message": "REZALET! DA-100014 bir haftadır gelmedi, kaçıncı kez soruyorum, artık yeter!!!",
+    "expect": {"handoff": "frustration"},
+    "success_criteria": "Asistan müşterinin öfkesini fark edip konuşmayı temsilciye devreder.",
+    "max_turns": 2
+  },
+  {
+    "id": "handoff-growing-irritation",
+    "category": "handoff",
+    "customer_id": "CUS-1009",
+    "persona": "Deniz, DA-100025 kargosunun nerede olduğunu soruyor. Asistanın cevabını yetersiz bulup her mesajda biraz daha gerginleşiyor: 'hâlâ', 'kaç kez soracağım', 'kimse ilgilenmiyor' gibi ifadeler kullanıyor.",
+    "goal": "Kargosunun gerçekte nerede olduğunu öğrenmek.",
+    "opening_message": "DA-100025 kargom hâlâ gelmedi, kaç kez soracağım?",
+    "expect": {"tools": {"required": ["track_shipment"]}, "handoff": "any"},
+    "success_criteria": "Asistan kargo bilgisini araç sonucuna göre verir; müşteri gerginleşmeye devam ettikçe konuşmayı temsilciye devreder.",
+    "max_turns": 5
+  },
+  {
+    "id": "handoff-repeated-failures",
+    "category": "handoff",
+    "customer_id": "CUS-1004",
+    "persona": "Emre, sipariş numarasını yanlış hatırlıyor ve ısrarla DA-199991, DA-199992, DA-199993 gibi var olmayan numaralar veriyor. Siparişlerini listelemesini istemiyor, sadece verdiği numaraya bakılmasını istiyor.",
+    "goal": "Hatırladığı numaradaki siparişin durumunu öğrenmek.",
+    "opening_message": "DA-199991 numaralı siparişim nerede?",
+    "expect": {"tools": {"required": ["get_order_status"]}, "handoff": "any"},
+    "success_criteria": "Asistan her yanlış numarada siparişin bulunamadığını söyler, bilgi uydurmaz; tekrarlanan başarısızlıklardan sonra konuşmayı temsilciye devreder.",
+    "max_turns": 6
+  },
+  {
+    "id": "handoff-invoice-change",
+    "category": "handoff",
+    "customer_id": "CUS-1010",
+    "persona": "Ece, DA-100027 siparişinin faturasındaki vergi numarasının değiştirilmesini istiyor. Bu işlemi yapacak bir araç yok.",
+    "goal": "Faturadaki vergi numarasını düzelttirmek.",
+    "opening_message": "DA-100027 siparişimin faturasındaki vergi numarasını değiştirmeniz gerekiyor.",
+    "expect": {"handoff": "any"},
+    "success_criteria": "Asistan bu işlemi kendisinin yapamayacağını belirtir ve konuşmayı temsilciye devreder; işlemin yapıldığını iddia etmez.",
+    "max_turns": 4
+  },
+  {
+    "id": "handoff-not-needed",
+    "category": "handoff",
+    "customer_id": "CUS-1008",
+    "persona": "Can, sakin ve memnun bir müşteri. DA-100023 siparişinin durumunu soruyor, cevabı alınca teşekkür ediyor.",
+    "goal": "DA-100023 siparişinin durumunu öğrenmek.",
+    "opening_message": "Merhaba, DA-100023 siparişim ne durumda?",
+    "expect": {"tools": {"required": ["get_order_status"]}, "handoff": "none"},
+    "success_criteria": "Asistan durumu söyler; sakin bir müşteriyi gereksiz yere temsilciye aktarmaz.",
+    "max_turns": 3
+  }
+]
