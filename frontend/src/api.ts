@@ -3,6 +3,9 @@ import type { Admin, ChatEvent, Customer, Order } from "./types";
 
 export class UnauthorizedError extends Error {}
 
+/** The agent refuses more messages for a while: too many were sent too fast. */
+export class RateLimitedError extends Error {}
+
 /** A refused request, with the order API's error code, e.g. "invalid_credentials". */
 export class ApiError extends Error {
   constructor(
@@ -99,6 +102,7 @@ export async function* streamChat(
     signal,
   });
   if (response.status === 401) throw new UnauthorizedError();
+  if (response.status === 429) throw new RateLimitedError();
   if (!response.ok || !response.body) throw new Error(`chat failed: ${response.status}`);
   yield* readEvents(response.body);
 }

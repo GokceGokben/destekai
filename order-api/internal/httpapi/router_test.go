@@ -19,7 +19,16 @@ import (
 	"github.com/destekai/order-api/internal/store"
 )
 
-var testSecret = []byte("test-secret-test-secret-test-secret")
+// A fresh key pair per test run; nothing secret is checked in.
+var testKeys = mustKeys()
+
+func mustKeys() auth.Keys {
+	keys, err := auth.GenerateKeys()
+	if err != nil {
+		panic(err)
+	}
+	return keys
+}
 
 var testPool *pgxpool.Pool
 
@@ -55,20 +64,20 @@ func newServer(t *testing.T) http.Handler {
 	if err := seed.Apply(context.Background(), testPool); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
-	return NewRouter(store.New(testPool), testSecret, false)
+	return NewRouter(store.New(testPool), testKeys, false)
 }
 
 func newDevServer(t *testing.T) http.Handler {
 	t.Helper()
 	newServer(t)
-	return NewRouter(store.New(testPool), testSecret, true)
+	return NewRouter(store.New(testPool), testKeys, true)
 }
 
 func request(t *testing.T, h http.Handler, method, path, customer, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	if customer != "" {
-		token, err := auth.Issue(testSecret, customer, time.Hour)
+		token, err := auth.Issue(testKeys.Private, customer, time.Hour)
 		if err != nil {
 			t.Fatalf("issue token: %v", err)
 		}
@@ -302,11 +311,12 @@ func TestCustomerIDInBodyIsRejected(t *testing.T) {
 
 func TestV1RequiresValidToken(t *testing.T) {
 	h := newServer(t)
-	wrongSecret, err := auth.Issue([]byte("another-secret-another-secret-123"), "CUS-1001", time.Hour)
+	// Signed by a key the service does not know.
+	anotherKey, err := auth.Issue(mustKeys().Private, "CUS-1001", time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
-	expired, err := auth.Issue(testSecret, "CUS-1001", -time.Hour)
+	expired, err := auth.Issue(testKeys.Private, "CUS-1001", -time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,7 +325,7 @@ func TestV1RequiresValidToken(t *testing.T) {
 		"missing":      "",
 		"wrong scheme": "Basic abc",
 		"garbage":      "Bearer abc",
-		"wrong secret": "Bearer " + wrongSecret,
+		"another key":  "Bearer " + anotherKey,
 		"expired":      "Bearer " + expired,
 	}
 	for name, header := range headers {
@@ -418,7 +428,7 @@ func TestConcurrentReturnsCreateOneRow(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := range attempts {
 		wg.Go(func() {
-			token, err := auth.Issue(testSecret, "CUS-1001", time.Hour)
+			token, err := auth.Issue(testKeys.Private, "CUS-1001", time.Hour)
 			if err != nil {
 				t.Error(err)
 				return

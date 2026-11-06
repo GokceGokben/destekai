@@ -16,7 +16,20 @@ from evals.runner import RateLimited, Runner
 from evals.scenario import Scenario
 
 AGENT = "http://agent.test"
-SECRET = "test-secret-test-secret-test-secret"
+ORDER_API = "http://order-api.test"
+
+
+@pytest.fixture(autouse=True)
+def demo_tokens(monkeypatch):
+    """The order API's demo login, which hands out the token, is not part of these tests."""
+
+    async def fake_token(order_api_url: str, customer_id: str) -> str:
+        assert order_api_url == ORDER_API
+        return f"token-for-{customer_id}"
+
+    monkeypatch.setattr("evals.agent_client.demo_token", fake_token)
+
+
 GOOD_VERDICT = json.dumps(
     {"task_success": True, "hallucination": False, "policy_compliance": True, "reasoning": "Tamam."}
 )
@@ -73,7 +86,7 @@ def runner(simulator: list[str], judge: list[str], state: DbState | None = None)
     return Runner(
         db=FakeDb(state or DbState([], None)),  # type: ignore[arg-type]
         agent_url=AGENT,
-        jwt_secret=SECRET,
+        order_api_url=ORDER_API,
         simulator_model=TextModel(FakeClient(*simulator)),
         judge=Judge(TextModel(FakeClient(*judge))),
     )

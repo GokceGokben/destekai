@@ -107,7 +107,7 @@ func (a *api) customerLogin(w http.ResponseWriter, r *http.Request) {
 		writeStoreError(w, err)
 		return
 	}
-	token, err := auth.Issue(a.jwtSecret, id, sessionTTL)
+	token, err := auth.Issue(a.keys.Private, id, sessionTTL)
 	if err != nil {
 		writeStoreError(w, err)
 		return
@@ -126,7 +126,7 @@ func (a *api) adminLogin(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	token, err := auth.IssueAdmin(a.jwtSecret, admin.ID, sessionTTL)
+	token, err := auth.IssueAdmin(a.keys.Private, admin.ID, sessionTTL)
 	if err != nil {
 		writeStoreError(w, err)
 		return
@@ -170,7 +170,7 @@ func (a *api) issueViewToken(w http.ResponseWriter, r *http.Request) {
 		writeStoreError(w, err)
 		return
 	}
-	token, err := auth.IssueView(a.jwtSecret, customer.ID, adminID, viewTokenTTL)
+	token, err := auth.IssueView(a.keys.Private, customer.ID, adminID, viewTokenTTL)
 	if err != nil {
 		writeStoreError(w, err)
 		return

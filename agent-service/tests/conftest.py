@@ -1,19 +1,25 @@
+import asyncio
 import json
+import sys
 from collections.abc import AsyncIterator
 
 import httpx
 import pytest
 import respx
-from pydantic import SecretStr
 
-from app.auth import issue_dev_token
 from app.config import Settings
 from app.llm.base import LLMEvent, Message, TextDelta, ToolCallRequested, ToolSpec, Usage
 from app.main import create_app
 from app.order_api import OrderApiClient
+from tests.tokens import PUBLIC_KEY, make_token
 
-SECRET = "test-secret-test-secret-test-secret"
 ORDER_API_URL = "http://order-api.test"
+
+if sys.platform == "win32":
+    # psycopg's async mode cannot run on Windows' default Proactor loop. The service itself
+    # runs on Linux; this only matters for running the tests on a Windows machine.
+    def pytest_asyncio_loop_factories(config, item):
+        return {"selector": asyncio.SelectorEventLoop}
 
 
 def text(reply: str) -> list[LLMEvent]:
@@ -47,6 +53,12 @@ class FakePolicySearch:
         self.results = results or []
         self.queries: list[str] = []
 
+    async def connect(self) -> None:
+        pass
+
+    async def close(self) -> None:
+        pass
+
     async def search(self, query: str) -> list[dict]:
         self.queries.append(query)
         if isinstance(self.results, Exception):
@@ -56,14 +68,18 @@ class FakePolicySearch:
 
 class Harness:
     def __init__(
-        self, llm: FakeLLM, policy_search: FakePolicySearch | None = None, tracer=None
+        self,
+        llm: FakeLLM,
+        policy_search: FakePolicySearch | None = None,
+        tracer=None,
+        **settings_overrides,
     ) -> None:
         self.llm = llm
         settings = Settings(
-            jwt_secret=SecretStr(SECRET),
             llm_provider="ollama",
             embedding_provider="local",
             order_api_url=ORDER_API_URL,
+            **settings_overrides,
         )
         self.app = create_app(
             settings,
@@ -71,10 +87,11 @@ class Harness:
             order_api=OrderApiClient(ORDER_API_URL),
             policy_search=policy_search or FakePolicySearch(),
             tracer=tracer,
+            public_key=PUBLIC_KEY,
         )
 
     async def post(self, message: str, customer: str = "CUS-1001", conversation: str = "c1"):
-        token = issue_dev_token(SECRET, customer)
+        token = make_token(customer)
         return await self.post_with_token(token, message, conversation)
 
     async def post_with_token(self, token: str, message: str, conversation: str = "c1"):

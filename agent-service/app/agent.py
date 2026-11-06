@@ -116,7 +116,10 @@ def build_graph(
         state: AgentState, runtime: Runtime[AgentContext]
     ) -> Command[Literal["agent", "review", "handoff", "__end__"]]:
         text = state["incoming"]
-        user: Message = {"role": "user", "content": text}
+        # Masked before it joins the conversation: no tool needs a TC kimlik, phone or card
+        # number, so they are neither stored in memory nor sent to the model provider. The
+        # checks below still read the original text.
+        user: Message = {"role": "user", "content": mask_pii(text)}
 
         if state.get("handed_off"):
             return Command(update={"messages": [user, _say(runtime, HANDED_OFF_REPLY)]}, goto=END)

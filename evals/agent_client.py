@@ -5,7 +5,6 @@ import uuid
 from typing import Any
 
 import httpx
-from app.auth import issue_dev_token
 from app.cli import read_events
 from pydantic import BaseModel
 
@@ -33,17 +32,25 @@ class AgentTurn(BaseModel):
     output_tokens: int = 0
 
 
+async def demo_token(order_api_url: str, customer_id: str) -> str:
+    """Only the order API can sign tokens, so the evaluation asks its demo login for one
+    (DEV_LOGIN must be on), as the login screen's demo page does."""
+    async with httpx.AsyncClient(base_url=order_api_url, timeout=10.0) as http:
+        response = await http.post("/v1/dev/token", json={"customer_id": customer_id})
+        response.raise_for_status()
+        return response.json()["token"]
+
+
 class AgentClient:
-    def __init__(self, base_url: str, jwt_secret: str, customer_id: str) -> None:
-        token = issue_dev_token(jwt_secret, customer_id)
-        self._http = httpx.AsyncClient(
-            base_url=base_url,
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=httpx.Timeout(10.0, read=180.0),
-        )
+    def __init__(self, base_url: str, order_api_url: str, customer_id: str) -> None:
+        self._order_api_url = order_api_url
+        self._customer_id = customer_id
+        self._http = httpx.AsyncClient(base_url=base_url, timeout=httpx.Timeout(10.0, read=180.0))
         self.conversation_id = f"eval-{uuid.uuid4().hex[:12]}"
 
     async def __aenter__(self) -> "AgentClient":
+        token = await demo_token(self._order_api_url, self._customer_id)
+        self._http.headers["Authorization"] = f"Bearer {token}"
         return self
 
     async def __aexit__(self, *exc: object) -> None:

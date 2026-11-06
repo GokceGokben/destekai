@@ -8,7 +8,8 @@ class Settings(BaseSettings):
     # Validation errors would otherwise print the raw inputs, secrets included, into the logs.
     model_config = SettingsConfigDict(hide_input_in_errors=True)
 
-    jwt_secret: SecretStr = SecretStr("")
+    # The order API signs tokens; this service only verifies them with the public key.
+    jwt_public_key_file: str = "/run/secrets/jwt_public.pem"
     order_api_url: str = "http://order-api:8080"
     database_url: SecretStr = SecretStr("")
 
@@ -29,6 +30,12 @@ class Settings(BaseSettings):
     # USD per million tokens of LLM_MODEL, for the cost column. Empty: cost is unknown.
     price_input_per_mtok: float | None = None
     price_output_per_mtok: float | None = None
+
+    # Messages one account may send; protects the model quota from a single sender.
+    chat_limit_per_minute: int = 20
+    chat_limit_per_day: int = 300
+    # Conversations untouched for this long are deleted from memory.
+    memory_retention_days: int = 30
 
     @field_validator("price_input_per_mtok", "price_output_per_mtok", mode="before")
     @classmethod

@@ -1,7 +1,8 @@
 # Phase 7 addition: real login and a read-only admin view
 
-Agreed with the project owner on 2026-11-03, to be built in Phase 7. Until then the demo
-login (`DEV_LOGIN`, decision 026) stays the only way in.
+Agreed with the project owner on 2026-11-03 and built in Phase 7 (decisions 046-048). Tokens
+were later moved from a shared HMAC secret to Ed25519 (decision 051); the claims below are
+unchanged.
 
 ## Why it was deferred
 

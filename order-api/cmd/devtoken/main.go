@@ -15,7 +15,12 @@ func main() {
 	ttl := flag.Duration("ttl", 24*time.Hour, "token lifetime")
 	flag.Parse()
 
-	token, err := auth.Issue([]byte(os.Getenv("JWT_SECRET")), *customer, *ttl)
+	keys, err := auth.LoadKeys(os.Getenv("JWT_PRIVATE_KEY_FILE"))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	token, err := auth.Issue(keys.Private, *customer, *ttl)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

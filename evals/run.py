@@ -100,7 +100,7 @@ async def main(argv: list[str] | None = None) -> int:
         runner = Runner(
             db=db,
             agent_url=settings.agent_url,
-            jwt_secret=settings.jwt_secret.get_secret_value(),
+            order_api_url=settings.order_api_url,
             simulator_model=simulator_model,
             judge=Judge(judge_model),
         )

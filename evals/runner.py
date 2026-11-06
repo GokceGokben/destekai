@@ -51,7 +51,7 @@ class ScenarioResult(BaseModel):
 class Runner:
     db: EvalDatabase
     agent_url: str
-    jwt_secret: str
+    order_api_url: str
     simulator_model: TextModel
     judge: Judge
 
@@ -61,7 +61,7 @@ class Runner:
         turns: list[AgentTurn] = []
         ended_by: EndReason = "max_turns"
 
-        async with AgentClient(self.agent_url, self.jwt_secret, scenario.customer_id) as agent:
+        async with AgentClient(self.agent_url, self.order_api_url, scenario.customer_id) as agent:
             message: str | None = scenario.opening_message
             while message is not None:
                 turn = await agent.send(message)

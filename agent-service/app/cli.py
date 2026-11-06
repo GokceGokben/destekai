@@ -12,8 +12,6 @@ from collections.abc import AsyncIterator
 
 import httpx
 
-from app.auth import issue_dev_token
-
 
 async def read_events(response: httpx.Response) -> AsyncIterator[tuple[str, dict]]:
     event = "message"
@@ -60,9 +58,18 @@ async def main() -> None:
     parser.add_argument("--customer", default="CUS-1001")
     parser.add_argument("--url", default="http://localhost:8000")
     parser.add_argument("--message", help="send one message and exit")
+    parser.add_argument(
+        "--order-api",
+        default=os.environ.get("ORDER_API_URL", "http://localhost:8080"),
+        help="where to get a demo token; needs DEV_LOGIN=true",
+    )
     args = parser.parse_args()
 
-    token = issue_dev_token(os.environ["JWT_SECRET"], args.customer)
+    # Only the order API can sign tokens, so the CLI asks it for one.
+    async with httpx.AsyncClient(base_url=args.order_api, timeout=10.0) as order_api:
+        response = await order_api.post("/v1/dev/token", json={"customer_id": args.customer})
+        response.raise_for_status()
+        token = response.json()["token"]
     conversation_id = str(uuid.uuid4())
     headers = {"Authorization": f"Bearer {token}"}
     timeout = httpx.Timeout(10.0, read=120.0)

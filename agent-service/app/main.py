@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import time
@@ -7,22 +8,26 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from app.agent import AgentContext, build_graph
-from app.auth import InvalidTokenError, verify_token
+from app.auth import InvalidTokenError, load_public_key, verify_token
 from app.config import Settings
 from app.guardrails.pii import install_log_masking
 from app.llm import build_llm_client
 from app.llm.base import LLMClient, RetryableLLMError
+from app.memory import PostgresMemory
 from app.order_api import OrderApiClient
 from app.prompts import BUSY_REPLY, ERROR_REPLY
 from app.rag.embeddings import build_embedding_client
 from app.rag.search import PolicySearch
 from app.rag.store import PolicyStore
+from app.ratelimit import ChatLimiter
 from app.tools import ToolDeps
 from app.tracing import (
     LangfuseTraceSink,
@@ -57,9 +62,8 @@ def current_session(
     scheme, _, token = (authorization or "").partition(" ")
     if scheme != "Bearer" or not token:
         raise HTTPException(status_code=401, detail="unauthorized")
-    secret = request.app.state.settings.jwt_secret.get_secret_value()
     try:
-        claims = verify_token(secret, token)
+        claims = verify_token(request.app.state.public_key, token)
     except InvalidTokenError as exc:
         raise HTTPException(status_code=401, detail="unauthorized") from exc
     return Session(
@@ -183,12 +187,13 @@ def create_app(
     order_api: OrderApiClient | None = None,
     policy_search: PolicySearch | None = None,
     tracer: Tracer | None = None,
+    public_key: Ed25519PublicKey | None = None,
+    checkpointer: BaseCheckpointSaver | None = None,
 ) -> FastAPI:
     install_log_masking()
     settings = settings or Settings()
-    # The indexer shares Settings but signs nothing, so this is checked here.
-    if len(settings.jwt_secret.get_secret_value()) < MIN_SECRET_LENGTH:
-        raise ValueError(f"JWT_SECRET must be at least {MIN_SECRET_LENGTH} characters")
+    # The indexer shares Settings but verifies nothing, so the key is loaded here.
+    public_key = public_key or load_public_key(settings.jwt_public_key_file)
     llm = llm or build_llm_client(settings)
     order_api = order_api or OrderApiClient(settings.order_api_url)
     policy_search = policy_search or PolicySearch(
@@ -199,32 +204,59 @@ def create_app(
     if tracer is None:
         tracer, sinks = build_tracer(settings)
 
+    # Conversations live in Postgres when there is a database; tests run in memory.
+    memory: PostgresMemory | None = None
+    if checkpointer is None:
+        database_url = settings.database_url.get_secret_value()
+        if database_url:
+            memory = PostgresMemory(database_url)
+        else:
+            checkpointer = InMemorySaver()
+
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         await policy_search.connect()
+        cleanup = None
+        if memory:
+            app.state.graph = build_graph(llm, deps, await memory.open())
+            cleanup = asyncio.create_task(memory.keep_pruned(settings.memory_retention_days))
         for sink in sinks:
             if hasattr(sink, "connect"):
                 await sink.connect()
         yield
+        if cleanup:
+            cleanup.cancel()
         for sink in sinks:
             await sink.close()
+        if memory:
+            await memory.close()
         await policy_search.close()
         await order_api.close()
 
     app = FastAPI(title="DestekAI agent service", lifespan=lifespan)
     app.state.settings = settings
+    app.state.public_key = public_key
     deps = ToolDeps(order_api=order_api, policy_search=policy_search)
-    app.state.graph = build_graph(llm, deps, InMemorySaver())
+    # With Postgres memory the graph is built at startup, once the saver exists.
+    app.state.graph = build_graph(llm, deps, checkpointer) if checkpointer else None
 
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
     # POST, not GET: the message and token stay out of URLs and access logs.
+    limiter = ChatLimiter(settings.chat_limit_per_minute, settings.chat_limit_per_day)
+
     @app.post("/v1/chat")
     async def chat(
         body: ChatRequest, session: Annotated[Session, Depends(current_session)]
     ) -> EventSourceResponse:
+        # An admin's view counts against the admin, not the customer being viewed.
+        sender = f"admin:{session.admin_id}" if session.read_only else session.customer_id
+        if not limiter.allow(sender):
+            raise HTTPException(
+                status_code=429, detail="rate_limited", headers={"Retry-After": "60"}
+            )
         return EventSourceResponse(chat_events(app.state.graph, session, body, tracer, settings))
 
     return app

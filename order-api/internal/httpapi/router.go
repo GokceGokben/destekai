@@ -31,16 +31,16 @@ const (
 type contextKey struct{}
 
 type api struct {
-	store     *store.Store
-	jwtSecret []byte
-	logins    *loginLimiter
+	store  *store.Store
+	keys   auth.Keys
+	logins *loginLimiter
 }
 
 // NewRouter builds the HTTP handler. All /v1 routes require a session token,
 // except /v1/dev, which exists only when devLogin is true: it hands out a token
 // for any customer, so it must stay off anywhere but a demo.
-func NewRouter(s *store.Store, jwtSecret []byte, devLogin bool) http.Handler {
-	a := &api{store: s, jwtSecret: jwtSecret, logins: newLoginLimiter(time.Now)}
+func NewRouter(s *store.Store, keys auth.Keys, devLogin bool) http.Handler {
+	a := &api{store: s, keys: keys, logins: newLoginLimiter(time.Now)}
 
 	r := chi.NewRouter()
 	// RealIP trusts X-Real-IP, which nginx sets; the service itself is bound to
@@ -94,7 +94,7 @@ func (a *api) requireRole(role string) func(http.Handler) http.Handler {
 				writeError(w, http.StatusUnauthorized, "unauthorized", "missing bearer token")
 				return
 			}
-			session, err := auth.Verify(a.jwtSecret, token)
+			session, err := auth.Verify(a.keys.Public, token)
 			if err != nil {
 				writeError(w, http.StatusUnauthorized, "unauthorized", "invalid token")
 				return
@@ -169,7 +169,7 @@ func (a *api) issueDevToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := auth.Issue(a.jwtSecret, body.CustomerID, devTokenTTL)
+	token, err := auth.Issue(a.keys.Private, body.CustomerID, devTokenTTL)
 	if err != nil {
 		writeStoreError(w, err)
 		return

@@ -25,12 +25,16 @@ services:
     restart: on-failure
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
-      JWT_SECRET: ${JWT_SECRET:?set in .env}
+      # Only the order API holds the private key: it is the one service that signs tokens.
+      JWT_PRIVATE_KEY_FILE: /run/secrets/jwt_private
       SEED_DATA: ${SEED_DATA:-true}
       # On by default for the demo; every port is bound to 127.0.0.1.
       DEV_LOGIN: ${DEV_LOGIN:-true}
       AGENT_DB_PASSWORD: ${AGENT_DB_PASSWORD:?set in .env}
+      TRACE_RETENTION_DAYS: ${TRACE_RETENTION_DAYS:-30}
+      AUDIT_RETENTION_DAYS: ${AUDIT_RETENTION_DAYS:-365}
       PORT: "8080"
+    secrets: [jwt_private]
     ports:
       - "127.0.0.1:${ORDER_API_PORT:-8080}:8080"
     depends_on:
@@ -65,7 +69,8 @@ services:
     restart: on-failure
     environment:
       <<: *agent-rag-env
-      JWT_SECRET: ${JWT_SECRET:?set in .env}
+      # The agent can verify tokens but never sign one.
+      JWT_PUBLIC_KEY_FILE: /run/secrets/jwt_public
       ORDER_API_URL: http://order-api:8080
       LLM_MODEL: ${LLM_MODEL:-gemini-3.6-flash}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
@@ -75,6 +80,10 @@ services:
       LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
       PRICE_INPUT_PER_MTOK: ${PRICE_INPUT_PER_MTOK:-}
       PRICE_OUTPUT_PER_MTOK: ${PRICE_OUTPUT_PER_MTOK:-}
+      CHAT_LIMIT_PER_MINUTE: ${CHAT_LIMIT_PER_MINUTE:-20}
+      CHAT_LIMIT_PER_DAY: ${CHAT_LIMIT_PER_DAY:-300}
+      MEMORY_RETENTION_DAYS: ${MEMORY_RETENTION_DAYS:-30}
+    secrets: [jwt_public]
     ports:
       - "127.0.0.1:${AGENT_SERVICE_PORT:-8000}:8000"
     depends_on:
@@ -98,6 +107,13 @@ services:
         condition: service_healthy
       agent-service:
         condition: service_healthy
+
+# Created with `make keys` (see README). The folder is git-ignored.
+secrets:
+  jwt_private:
+    file: ./secrets/jwt_private.pem
+  jwt_public:
+    file: ./secrets/jwt_public.pem
 
 volumes:
   postgres_data:

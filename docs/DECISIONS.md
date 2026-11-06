@@ -308,3 +308,35 @@
 - **Decision:** Every pull request runs lint and unit tests for the three services. The 5-scenario evaluation starts the whole stack with compose and runs only for the `run-evals` label or a manual run, using the `GEMINI_API_KEY` repository secret, and uploads the report as an artifact.
 - **Alternatives:** Running it on every pull request, as the brief says; recorded model replies.
 - **Why:** The free tier allows 20 requests per model a day and one run uses about 15, so an automatic run on every push would starve the evaluation itself. The label keeps it one click away.
+
+## 051: Ed25519 token signing; only the order API can sign
+
+- **Decision:** Session tokens are signed with Ed25519 (`EdDSA`) instead of a shared HS256 secret. The order API holds the private key and the agent service only the public key, both mounted as compose secrets from a git-ignored `secrets/` folder made by `make keys` (or `cmd/keygen`). The agent's token-minting helper is gone: the CLI and the evaluation get demo tokens from the order API's `/v1/dev/token`, and agent tests sign with a key pair made per test run.
+- **Alternatives:** Keep HS256 with one secret in both services; RS256; fetching the public key from a JWKS endpoint.
+- **Why:** With a shared secret, a compromised agent could mint any token, an admin's included. Now the one service that issues identities is the only one able to. Ed25519 has small keys and fast, deterministic signatures, and both `golang-jwt` and PyJWT support it. Verification pins the algorithm, and tests show that a token from another key and an HS256 token keyed with the public key are both refused. Rotation means a new key pair and a restart, which signs everyone out; a `kid` header and a JWKS endpoint would allow overlap, not needed for one deployment.
+
+## 052: Conversation memory in Postgres
+
+- **Decision:** The agent checkpoints conversations with LangGraph's Postgres saver (`langgraph-checkpoint-postgres` 3.2.0, `psycopg` 3.3.6, `psycopg-pool` 3.3.3) into an `agent_memory` schema owned by the agent's role (migration 00008). Tests without a database keep the in-memory saver. The saver is created at startup, since it binds to the running event loop, and startup fails within 10 seconds if the database cannot be reached.
+- **Alternatives:** The in-memory saver; Redis; storing transcripts in our own table.
+- **Why:** Memory survives restarts and can be shared by several instances, which a test checks by answering one conversation from two app instances, and a live check confirmed for a handed-off conversation across `docker compose restart agent-service`. The official saver handles serialization and its own schema migrations. A schema of its own lets it create tables without any right on customer data. Messages are stored as the model sees them, not masked; old conversations are not cleaned up yet.
+- **Note:** On Windows, psycopg's async mode needs a selector event loop, which the tests set through pytest-asyncio's loop factory hook, and `localhost` must be written as `127.0.0.1`: the pool's connection over `::1` stalls in Docker Desktop's port forwarding.
+
+## 053: A per-account limit on chat messages
+
+- **Decision:** The chat endpoint allows each account 20 messages a minute and 300 a day, by default, and answers 429 with `Retry-After` beyond that; the UI says to wait a minute. An admin's view counts against the admin, not the customer viewed. The windows live in process memory.
+- **Alternatives:** A limit per IP in nginx; no limit.
+- **Why:** Logins were limited but a signed-in account could still send hundreds of messages and spend the whole model quota or budget. Counting per account follows the identity the token already proves. One instance needs no shared store; several would need Redis.
+
+## 054: Personal data masked before it is stored, and deleted on a schedule
+
+- **Decision:** A customer's message is masked (TC kimlik, card, phone, IBAN, e-mail) before it joins the conversation, so the stored memory and the model provider see only placeholders; the guardrails still read the original. The agent deletes conversations whose last step is older than 30 days, every six hours. The order API deletes traces older than 30 days and audit rows older than 365 days on the same schedule. All periods are settings.
+- **Alternatives:** Masking only logs, as before; encrypting messages at rest.
+- **Why:** No tool needs these numbers, so keeping them only adds risk, and not sending them to an external model is the stronger guarantee. Fixed retention is what KVKK expects of data kept for a purpose. Audit rows are kept longer because they answer who looked at a customer's data.
+
+## 055: Security headers with a hash-pinned CSP
+
+- **Decision:** nginx sends a Content-Security-Policy that allows scripts only from the site plus the inline theme script by its SHA-256, styles from the site and Google Fonts, images from the site and Unsplash, and no framing; along with `nosniff`, `X-Frame-Options: DENY`, a referrer policy and a permissions policy. The headers live in one file included wherever a location sets its own headers. `.gitattributes` pins `index.html` to LF, and a test checks that the hash in the config matches the script.
+- **Alternatives:** `'unsafe-inline'` for scripts; moving the theme script to a file.
+- **Why:** The CSP limits what an injected script could do. The inline script must run before the first paint, so it stays inline and is allowed by hash. Its hash covers exact bytes, and Git would check the file out with CRLF on Windows and LF elsewhere, so the line endings are fixed. nginx drops inherited `add_header` lines in a location that has its own, which would have left the report without headers.
+

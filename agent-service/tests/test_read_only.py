@@ -7,22 +7,23 @@ import httpx
 import jwt
 import pytest
 
-from app.auth import InvalidTokenError, issue_dev_token, verify_token
+from app.auth import InvalidTokenError, verify_token
 from app.prompts import READ_ONLY_ACTION_REPLY, READ_ONLY_NOTE
-from tests.conftest import SECRET, FakeLLM, parse_sse, text, tool
+from tests.conftest import FakeLLM, parse_sse, text, tool
+from tests.tokens import PUBLIC_KEY, TEST_KEY, make_token
 
 
 def view_token(customer: str = "CUS-1001") -> str:
-    return issue_dev_token(SECRET, customer, viewer="ADM-1001")
+    return make_token(customer, viewer="ADM-1001")
 
 
 def raw(claims: dict) -> str:
     base = {"iss": "destekai", "sub": "CUS-1001", "exp": datetime.now(UTC) + timedelta(hours=1)}
-    return jwt.encode(base | claims, SECRET, algorithm="HS256")
+    return jwt.encode(base | claims, TEST_KEY, algorithm="EdDSA")
 
 
 def test_view_token_carries_the_admin():
-    claims = verify_token(SECRET, view_token())
+    claims = verify_token(PUBLIC_KEY, view_token())
     assert (claims.customer_id, claims.read_only, claims.admin_id) == (
         "CUS-1001",
         True,
@@ -42,7 +43,7 @@ def test_view_token_carries_the_admin():
 )
 def test_tokens_outside_the_rules_are_refused(claims):
     with pytest.raises(InvalidTokenError):
-        verify_token(SECRET, raw(claims))
+        verify_token(PUBLIC_KEY, raw(claims))
 
 
 async def test_write_tools_are_not_offered_and_the_prompt_says_why(harness):

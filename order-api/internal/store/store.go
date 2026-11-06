@@ -455,3 +455,20 @@ func (s *Store) CreateHandoff(ctx context.Context, customerID, conversationID, r
 	}
 	return h, nil
 }
+
+// PurgeOldRecords deletes agent traces and admin audit rows older than their
+// retention, in days, so personal data is not kept longer than it is needed.
+func (s *Store) PurgeOldRecords(ctx context.Context, traceDays, auditDays int) (traces, audits int64, err error) {
+	tag, err := s.pool.Exec(ctx,
+		`DELETE FROM agent_traces WHERE started_at < now() - make_interval(days => $1)`, traceDays)
+	if err != nil {
+		return 0, 0, fmt.Errorf("purge traces: %w", err)
+	}
+	traces = tag.RowsAffected()
+	tag, err = s.pool.Exec(ctx,
+		`DELETE FROM admin_audit_log WHERE created_at < now() - make_interval(days => $1)`, auditDays)
+	if err != nil {
+		return traces, 0, fmt.Errorf("purge audit log: %w", err)
+	}
+	return traces, tag.RowsAffected(), nil
+}

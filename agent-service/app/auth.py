@@ -1,12 +1,18 @@
-"""Verifies and issues the session JWT. Must stay in line with order-api/internal/auth."""
+"""Verifies the session JWT. Must stay in line with order-api/internal/auth.
+
+Tokens are signed with Ed25519 by the order API. This service holds only the public key: it
+can check a token but cannot create one, so a compromised agent cannot mint an admin token.
+"""
 
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import jwt
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
 ISSUER = "destekai"
-ALGORITHM = "HS256"
+ALGORITHM = "EdDSA"
 
 
 class InvalidTokenError(Exception):
@@ -21,13 +27,21 @@ class TokenClaims:
     admin_id: str | None = None
 
 
-def verify_token(secret: str, token: str) -> TokenClaims:
+def load_public_key(path: str) -> Ed25519PublicKey:
+    key = load_pem_public_key(Path(path).read_bytes())
+    if not isinstance(key, Ed25519PublicKey):
+        raise ValueError(f"{path} is not an Ed25519 public key")
+    return key
+
+
+def verify_token(public_key: Ed25519PublicKey, token: str) -> TokenClaims:
     """Accepts customer tokens only: an admin talks to the agent through a read-only view
-    token for one customer. Order ownership is still enforced by the order API."""
+    token for one customer. Order ownership is still enforced by the order API. Pinning the
+    algorithm rejects "alg: none" and an HMAC token keyed with the public key."""
     try:
         claims = jwt.decode(
             token,
-            secret,
+            public_key,
             algorithms=[ALGORITHM],
             issuer=ISSUER,
             options={"require": ["exp", "iss", "sub"]},
@@ -43,19 +57,3 @@ def verify_token(secret: str, token: str) -> TokenClaims:
     if read_only != bool(admin_id) or (actor is not None and not admin_id):
         raise InvalidTokenError
     return TokenClaims(customer_id=claims["sub"], read_only=read_only, admin_id=admin_id)
-
-
-def issue_dev_token(
-    secret: str,
-    customer_id: str,
-    ttl: timedelta = timedelta(hours=1),
-    viewer: str | None = None,
-) -> str:
-    """Stands in for a login flow; used only by the CLI, tests and evals. With a viewer it
-    issues an admin's read-only view token, as the order API does."""
-    now = datetime.now(UTC)
-    claims: dict = {"iss": ISSUER, "sub": customer_id, "role": "customer", "iat": now}
-    claims["exp"] = now + ttl
-    if viewer:
-        claims |= {"readonly": True, "act": {"sub": viewer}}
-    return jwt.encode(claims, secret, algorithm=ALGORITHM)

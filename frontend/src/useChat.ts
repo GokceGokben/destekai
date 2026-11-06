@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
-import { streamChat, UnauthorizedError } from "./api";
+import { RateLimitedError, streamChat, UnauthorizedError } from "./api";
 import { chatReducer, initialChatState } from "./chatReducer";
 import { formatTime } from "./format";
 
 const CONNECTION_ERROR = "Bağlantı kesildi. Lütfen tekrar deneyin.";
+const RATE_LIMITED = "Çok kısa sürede çok fazla mesaj gönderdiniz. Lütfen bir dakika sonra tekrar deneyin.";
 
 export function useChat(token: string, onUnauthorized: () => void) {
   const [state, dispatch] = useReducer(chatReducer, initialChatState);
@@ -37,6 +38,8 @@ export function useChat(token: string, onUnauthorized: () => void) {
       } catch (error) {
         if (error instanceof UnauthorizedError) {
           onUnauthorized();
+        } else if (error instanceof RateLimitedError) {
+          dispatch({ type: "failed", message: RATE_LIMITED });
         } else if (!controller.signal.aborted) {
           dispatch({ type: "failed", message: CONNECTION_ERROR });
         }

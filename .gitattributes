@@ -1,0 +1,3 @@
+# The CSP allows the inline script in index.html by the hash of its exact bytes, so its
+# line endings must not change with the platform it is checked out on.
+frontend/index.html text eol=lf

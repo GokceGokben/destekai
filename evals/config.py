@@ -11,8 +11,8 @@ class EvalSettings(BaseSettings):
         env_file=ROOT / ".env", extra="ignore", hide_input_in_errors=True
     )
 
-    jwt_secret: SecretStr
     agent_service_port: int = 8000
+    order_api_port: int = 8080
     postgres_user: str = "destekai"
     postgres_password: SecretStr = SecretStr("")
     postgres_db: str = "destekai"
@@ -40,6 +40,10 @@ class EvalSettings(BaseSettings):
     @property
     def agent_url(self) -> str:
         return f"http://localhost:{self.agent_service_port}"
+
+    @property
+    def order_api_url(self) -> str:
+        return f"http://localhost:{self.order_api_port}"
 
     @property
     def database_url(self) -> str:

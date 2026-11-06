@@ -64,7 +64,7 @@ func TestCustomerLoginIgnoresEmailCase(t *testing.T) {
 		Token    string
 		Customer store.Customer
 	}](t, rec)
-	session, err := auth.Verify(testSecret, body.Token)
+	session, err := auth.Verify(testKeys.Public, body.Token)
 	if err != nil || session.Subject != "CUS-1001" || session.Role != auth.RoleCustomer || session.ReadOnly {
 		t.Errorf("session = %+v, err = %v", session, err)
 	}
@@ -152,7 +152,7 @@ func TestAdminLoginAndRoles(t *testing.T) {
 	// An admin token alone cannot read orders, and a customer token cannot use admin routes.
 	assertError(t, call(t, h, http.MethodGet, "/v1/orders", admin, "", "10.0.0.1"),
 		http.StatusForbidden, "wrong_role")
-	customer, _ := auth.Issue(testSecret, "CUS-1001", time.Hour)
+	customer, _ := auth.Issue(testKeys.Private, "CUS-1001", time.Hour)
 	assertError(t, call(t, h, http.MethodGet, "/v1/admin/customers", customer, "", "10.0.0.1"),
 		http.StatusForbidden, "wrong_role")
 }
@@ -194,4 +194,38 @@ func TestEveryViewIsAudited(t *testing.T) {
 
 	missing := call(t, h, http.MethodPost, "/v1/admin/customers/CUS-9999/view-token", admin, "", "10.0.0.1")
 	assertError(t, missing, http.StatusNotFound, "customer_not_found")
+}
+
+func TestOldTracesAndAuditRowsArePurged(t *testing.T) {
+	h := newServer(t)
+	viewToken(t, h, adminToken(t, h), "CUS-1001") // one recent audit row
+	ctx := context.Background()
+	// The seed does not reset traces, so earlier runs' rows are removed first.
+	if _, err := testPool.Exec(ctx, `DELETE FROM agent_traces`); err != nil {
+		t.Fatal(err)
+	}
+	_, err := testPool.Exec(ctx, `
+		INSERT INTO admin_audit_log (admin_id, customer_id, action, created_at)
+		VALUES ('ADM-1001', 'CUS-1001', 'view_customer', now() - interval '400 days')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = testPool.Exec(ctx, `
+		INSERT INTO agent_traces (conversation_id, customer_id, model, outcome, started_at,
+			latency_ms, input_tokens, output_tokens, tools, customer_text, reply_text)
+		VALUES ('old', 'CUS-1001', 'm', 'answered', now() - interval '40 days', 1, 0, 0, '[]', '', ''),
+		       ('new', 'CUS-1001', 'm', 'answered', now(), 1, 0, 0, '[]', '', '')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	traces, audits, err := store.New(testPool).PurgeOldRecords(ctx, 30, 365)
+	if err != nil || traces != 1 || audits != 1 {
+		t.Fatalf("purged traces=%d audits=%d err=%v; want 1 and 1", traces, audits, err)
+	}
+	var left int
+	_ = testPool.QueryRow(ctx, `SELECT count(*) FROM agent_traces`).Scan(&left)
+	if left != 1 {
+		t.Errorf("traces left = %d, want the recent one", left)
+	}
 }

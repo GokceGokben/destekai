@@ -45,17 +45,18 @@ flowchart LR
 | Service | Stack | Role |
 | --- | --- | --- |
 | `order-api` | Go, chi, pgx, goose | Customers, orders, shipments, returns, handoffs, login. Checks on every request that the order belongs to the token's customer. |
-| `agent-service` | Python 3.13, FastAPI, LangGraph | The agent graph, tools, RAG, guardrails, SSE endpoint, traces. |
+| `agent-service` | Python 3.13, FastAPI, LangGraph | The agent graph, tools, RAG, guardrails, SSE endpoint, traces. Conversation memory is checkpointed to Postgres. |
 | `frontend` | React 19, TypeScript, Vite, Tailwind, shadcn/ui | Customer chat, admin views, evaluation panel. Served by nginx on one origin. |
 | `evals` | Python | 56 scenarios, customer simulator, LLM judge, reports. |
 | `postgres` | PostgreSQL 16 + pgvector | Relational data, policy embeddings, traces. |
 
 ## Quick start
 
-Requirements: Docker, and a Gemini API key from Google AI Studio (the free tier works).
+Requirements: Docker, OpenSSL, and a Gemini API key from Google AI Studio (the free tier works).
 
 ```bash
-cp .env.example .env     # then fill in the passwords, JWT_SECRET and GEMINI_API_KEY
+cp .env.example .env     # then fill in the passwords and GEMINI_API_KEY
+make keys                # the Ed25519 key pair that signs session tokens, in ./secrets
 docker compose up -d --build
 ```
 
@@ -113,6 +114,7 @@ Models: agent `gemini-3.6-flash`, simulator `gemini-3.5-flash-lite`, judge `gemi
 ## Security design
 
 - **Identity:** the customer ID never comes from the model. The browser holds a JWT; the agent forwards the customer's own token to the order API, which checks ownership on every request. No tool takes a customer ID.
+- **Signing keys:** tokens are signed with Ed25519. Only the order API holds the private key; the agent service gets the public key, so it can verify a token but never create one. A compromised agent cannot mint an admin token. Verification pins the algorithm, which rejects `alg: none` and an HMAC token keyed with the public key.
 - **Admin access:** an admin token cannot read orders. An admin gets a 15-minute read-only token per customer (RFC 8693 `act` claim). Middleware refuses every write in that session, and the agent does not even offer write tools.
 - **Logins:**
   - bcrypt with cost 12.
@@ -120,6 +122,9 @@ Models: agent `gemini-3.6-flash`, simulator `gemini-3.5-flash-lite`, judge `gemi
   - 5 failed attempts per email or address in 15 minutes.
 - **Prompt injection:** a rule-based check runs before the model. It is the first filter, not the boundary.
 - **Personal data:** TC kimlik, card numbers (checksums verified), phone numbers, IBANs and emails are masked in logs, traces and handoff summaries.
+- **Abuse limits:** besides the login limit, each account may send 20 chat messages a minute and 300 a day (429 beyond that), so one account cannot exhaust the model quota.
+- **Data minimization:** TC kimlik, card and phone numbers are masked before a message joins the conversation, so they are neither stored in memory nor sent to the model provider; no tool needs them. Conversations and traces are deleted after 30 days and audit rows after a year (configurable).
+- **HTTP headers:** nginx sends a strict Content-Security-Policy (scripts only from the site, the inline theme script by its hash), `X-Frame-Options: DENY`, `nosniff`, a referrer policy and a permissions policy.
 - **Database privileges:** the agent's database role manages policy chunks and inserts traces. It has no access to customer tables, so a compromised agent still goes through the order API.
 
 ## Observability
@@ -159,7 +164,10 @@ Every significant design choice, with its alternatives and reasons, is recorded 
 ## Known gaps
 
 - **Missing login features:** no password reset, email verification, multi-factor login or refresh tokens.
-- **Single-instance state:** the login rate limit and the agent's conversation memory live in process memory, which suits one instance only.
+- **Single-instance state:** the login and chat rate limits live in process memory, which suits one instance only. Conversation memory is in Postgres and survives restarts.
+- **No HTTPS:** the stack is bound to localhost; a public deployment needs TLS in front of nginx and `DEV_LOGIN=false`.
+- **Data subject requests:** there is no endpoint to export or delete one customer's data on request.
+- **No token revocation:** a token stays valid until it expires (8 hours, 15 minutes for an admin view).
 - **Frustration detection:** a Turkish word list. It misses sarcasm and unusual phrasing.
 - **Invented numbers:** flagged after the reply has streamed, not blocked before it.
 - **Full evaluation:** the free tier's 20 requests per model per day stretch a 56-scenario run over several days.

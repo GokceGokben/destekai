@@ -1,12 +1,13 @@
 import json
 
 import httpx
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from app.agent import MAX_STEPS
-from app.auth import issue_dev_token
 from app.llm.base import RetryableLLMError
 from app.prompts import BUSY_REPLY, ERROR_REPLY, STEP_LIMIT_REPLY
-from tests.conftest import SECRET, FakeLLM, parse_sse, text, tool
+from tests.conftest import FakeLLM, parse_sse, text, tool
+from tests.tokens import make_token
 
 ORDER = {
     "id": "DA-100001",
@@ -57,7 +58,7 @@ async def test_session_token_reaches_the_order_api_but_never_the_model(harness, 
         return_value=httpx.Response(200, json={"orders": [ORDER]})
     )
     h = harness(FakeLLM(tool("list_my_orders"), text("Bir siparişiniz var.")))
-    token = issue_dev_token(SECRET, "CUS-1001")
+    token = make_token("CUS-1001")
     await h.post_with_token(token, "Siparişlerim?")
 
     assert route.calls.last.request.headers["Authorization"] == f"Bearer {token}"
@@ -165,8 +166,8 @@ async def test_unexpected_failure_hides_details(harness):
 
 async def test_chat_requires_a_valid_token(harness):
     h = harness(FakeLLM())
-    wrong_secret = issue_dev_token("another-secret-another-secret-123", "CUS-1001")
-    response = await h.post_with_token(wrong_secret, "Selam")
+    forged = make_token("CUS-1001", key=Ed25519PrivateKey.generate())
+    response = await h.post_with_token(forged, "Selam")
 
     assert response.status_code == 401
     assert h.llm.calls == []

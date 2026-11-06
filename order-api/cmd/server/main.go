@@ -9,19 +9,21 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/destekai/order-api/internal/auth"
 	"github.com/destekai/order-api/internal/httpapi"
 	"github.com/destekai/order-api/internal/seed"
 	"github.com/destekai/order-api/internal/store"
 )
 
 const (
-	minSecretLength = 32
 	shutdownTimeout = 10 * time.Second
+	purgeInterval   = 6 * time.Hour
 )
 
 func main() {
@@ -36,9 +38,9 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	secret := os.Getenv("JWT_SECRET")
-	if len(secret) < minSecretLength {
-		return fmt.Errorf("JWT_SECRET must be at least %d characters", minSecretLength)
+	keys, err := auth.LoadKeys(os.Getenv("JWT_PRIVATE_KEY_FILE"))
+	if err != nil {
+		return fmt.Errorf("signing key (create one with cmd/keygen): %w", err)
 	}
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -67,9 +69,13 @@ func run() error {
 
 	server := &http.Server{
 		Addr:              ":" + port,
-		Handler:           httpapi.NewRouter(store.New(pool), []byte(secret), os.Getenv("DEV_LOGIN") == "true"),
+		Handler:           httpapi.NewRouter(store.New(pool), keys, os.Getenv("DEV_LOGIN") == "true"),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
+
+	traceDays := envDays("TRACE_RETENTION_DAYS", 30)
+	auditDays := envDays("AUDIT_RETENTION_DAYS", 365)
+	go purgeOldRecords(ctx, store.New(pool), traceDays, auditDays)
 
 	errs := make(chan error, 1)
 	go func() {
@@ -89,4 +95,32 @@ func run() error {
 		defer cancel()
 		return server.Shutdown(shutdownCtx)
 	}
+}
+
+// purgeOldRecords applies the retention at startup and then every purgeInterval,
+// until the server shuts down.
+func purgeOldRecords(ctx context.Context, s *store.Store, traceDays, auditDays int) {
+	ticker := time.NewTicker(purgeInterval)
+	defer ticker.Stop()
+	for {
+		traces, audits, err := s.PurgeOldRecords(ctx, traceDays, auditDays)
+		if err != nil {
+			slog.Warn("retention purge failed", "error", err)
+		} else if traces+audits > 0 {
+			slog.Info("retention purge", "traces", traces, "audit_rows", audits)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+func envDays(name string, fallback int) int {
+	days, err := strconv.Atoi(os.Getenv(name))
+	if err != nil || days < 1 {
+		return fallback
+	}
+	return days
 }
