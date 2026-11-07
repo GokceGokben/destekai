@@ -184,5 +184,4 @@ Every significant design choice, with its alternatives and reasons, is recorded 
 
 ## License
 
-© 2026 GokceGokben. All rights reserved. The code is public so that it can be reviewed;
-please ask before reusing any part of it.
+© 2026 GokceGokben. All rights reserved. See [LICENSE](LICENSE).
