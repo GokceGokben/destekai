@@ -39,8 +39,6 @@ from app.tracing import (
 
 logger = logging.getLogger(__name__)
 
-MIN_SECRET_LENGTH = 32
-
 
 class ChatRequest(BaseModel):
     # The pattern excludes ":", so a thread ID can only be split in one way.

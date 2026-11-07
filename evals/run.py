@@ -21,7 +21,7 @@ from evals.config import EvalSettings
 from evals.db import EvalDatabase
 from evals.judge import Judge
 from evals.llm import build_model
-from evals.report import REPORT_DIR, build_report, write_report
+from evals.report import REPORT_DIR, build_report, carry_over, write_report
 from evals.runner import RateLimited, Runner, ScenarioResult
 from evals.scenario import Scenario, load_scenarios, select
 
@@ -122,18 +122,23 @@ async def main(argv: list[str] | None = None) -> int:
     if not results:
         print("no finished scenarios yet; no report written")
         return 1
-    report = build_report(
-        results,
+    created_at, eval_tokens = carry_over(
         run_id,
-        models=models,
-        eval_tokens={
+        {
             "simulator_input": simulator_model.tokens.input_tokens,
             "simulator_output": simulator_model.tokens.output_tokens,
             "judge_input": judge_model.tokens.input_tokens,
             "judge_output": judge_model.tokens.output_tokens,
         },
+    )
+    report = build_report(
+        results,
+        run_id,
+        models=models,
+        eval_tokens=eval_tokens,
         price_input=settings.price_input_per_mtok,
         price_output=settings.price_output_per_mtok,
+        created_at=created_at,
     )
     path = write_report(report, update_latest=not interrupted and bool(results))
     print(json.dumps(report["summary"], ensure_ascii=False, indent=2))

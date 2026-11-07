@@ -5,8 +5,15 @@ returns and store policies, opens returns, and hands the conversation to a perso
 should. What sets it apart is that it is **measured**: a second model plays customers from 56
 scripted personas, and every conversation is scored by deterministic checks and an LLM judge.
 
-<!-- Demo GIF: record the login, a return in the assistant window and the evaluation panel. -->
-> **Demo:** _GIF coming soon._
+## Screenshots
+
+| Customer orders | Assistant (dark theme) |
+| --- | --- |
+| ![Order list with a VIP customer's card and order cards](docs/screenshots/orders.png) | ![The assistant window with quick-start topics](docs/screenshots/assistant-dark.png) |
+| **Evaluation panel** | **Conversation replay** |
+| ![Metrics, scenario results and the judge's verdict](docs/screenshots/evaluation.png) | ![A prompt-injection scenario replayed turn by turn with its checks](docs/screenshots/replay.png) |
+| **Login** | **Shipment tracking on the back of an order card** |
+| ![Customer and admin login](docs/screenshots/login.png) | ![Shipping stages, latest event and estimated delivery](docs/screenshots/order-tracking.png) |
 
 ## What it does
 
@@ -64,7 +71,6 @@ Open <http://localhost:3000>.
 
 ### Demo accounts
 
-
 - **Passwords:** these are demo accounts. Only bcrypt hashes are stored, in `order-api/internal/seed/seed.sql`.
 - **Demo login:** with `DEV_LOGIN=true`, the default in compose, the login screen also offers a password-free quick login per customer. Set it to `false` and only real logins remain.
 - **Admin view:** an admin sees every customer and opens their panel **read-only**. The server refuses writes from that view, and every view is recorded in an audit table.
@@ -108,6 +114,9 @@ First run, 5 scenarios (`--subset 5`, one per category, attacks first). A full 5
 | Latency per turn, average (p95) | 4.7 s (12.0 s) |
 | Time to first token | 4.5 s |
 | Tokens per conversation (in / out) | 2,453 / 340 |
+| Agent cost per conversation | $0.0031 |
+
+The cost uses the agent model's paid-tier price at the time of the run ($0.75 / $3.75 per million input / output tokens); the simulator and judge are not included.
 
 Models: agent `gemini-3.6-flash`, simulator `gemini-3.5-flash-lite`, judge `gemini-3.5-flash`.
 
@@ -154,7 +163,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs lint and unit tests for all thr
 ```
 order-api/       Go service, migrations, seed data
 agent-service/   agent graph, tools, guardrails, RAG, tracing
-frontend/        React UI, nginx config, Stitch design exports
+frontend/        React UI, nginx config
 evals/           scenarios, simulator, judge, rubric, reports
 docs/            DECISIONS.md, policies, plans
 ```
@@ -168,6 +177,7 @@ Every significant design choice, with its alternatives and reasons, is recorded 
 - **No HTTPS:** the stack is bound to localhost; a public deployment needs TLS in front of nginx and `DEV_LOGIN=false`.
 - **Data subject requests:** there is no endpoint to export or delete one customer's data on request.
 - **No token revocation:** a token stays valid until it expires (8 hours, 15 minutes for an admin view).
+- **Handoff queue:** a handoff is stored with its masked summary, but no screen lets a human agent pick it up yet.
 - **Frustration detection:** a Turkish word list. It misses sarcasm and unusual phrasing.
 - **Invented numbers:** flagged after the reply has streamed, not blocked before it.
 - **Full evaluation:** the free tier's 20 requests per model per day stretch a 56-scenario run over several days.

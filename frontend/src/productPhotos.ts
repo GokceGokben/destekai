@@ -3,13 +3,13 @@ import { useEffect, useState } from "react";
 /** Written by scripts/fetch-product-images.mjs and scripts/fetch-customer-photos.mjs.
  * Unsplash's API terms require showing the photo from its own URL and crediting the
  * photographer, so only the URLs are stored. */
-export interface ProductPhoto {
+interface ProductPhoto {
   url: string;
   author: string;
   author_url: string;
 }
 
-export type PhotoManifest = Record<string, ProductPhoto>;
+type PhotoManifest = Record<string, ProductPhoto>;
 
 const manifests = new Map<string, Promise<PhotoManifest>>();
 

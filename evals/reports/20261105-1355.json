@@ -23,7 +23,7 @@
     "avg_first_token_ms": 4540.8,
     "avg_input_tokens": 2453.2,
     "avg_output_tokens": 339.8,
-    "avg_cost_usd": null
+    "avg_cost_usd": 0.003114
   },
   "categories": [
     {

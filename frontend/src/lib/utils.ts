@@ -27,6 +27,9 @@ const twMerge = extendTailwindMerge({
   },
 });
 
+/** The soft shadow under cards and the header, so neighbouring blocks read as separate. */
+export const CARD_SHADOW = "shadow-[0_10px_24px_-12px_rgba(70,50,30,0.28)] dark:shadow-[0_10px_24px_-10px_rgba(0,0,0,0.7)]";
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }

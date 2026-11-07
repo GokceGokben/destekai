@@ -1,6 +1,9 @@
 services:
   postgres:
     image: pgvector/pgvector:0.8.7-pg16
+    # The long-running services come back when Docker starts again, e.g. after a reboot,
+    # unless they were stopped on purpose with `docker compose stop` or `down`.
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?set in .env}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
@@ -19,10 +22,9 @@ services:
 
   order-api:
     build: ./order-api
-    # depends_on is ignored by `docker compose start` and Docker Desktop's Start button,
-    # so the API can come up before Postgres accepts connections. It exits then; this
-    # retries it.
-    restart: on-failure
+    # depends_on is ignored when Docker restarts containers itself, so the API can come up
+    # before Postgres accepts connections. It exits then, and this starts it again.
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
       # Only the order API holds the private key: it is the one service that signs tokens.
@@ -66,7 +68,7 @@ services:
 
   agent-service:
     build: ./agent-service
-    restart: on-failure
+    restart: unless-stopped
     environment:
       <<: *agent-rag-env
       # The agent can verify tokens but never sign one.
@@ -97,6 +99,7 @@ services:
 
   frontend:
     build: ./frontend
+    restart: unless-stopped
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-3000}:80"
     # The admin panel reads the latest evaluation report; a new run shows up without a rebuild.

@@ -55,7 +55,7 @@ export function AdminHome({ token, admin, onOpen, onLogout }: Props) {
           Bir müşterinin panelini, onun gördüğü gibi açarsınız. İade açmak gibi işlemler bu
           görünümden yapılamaz ve her görüntüleme kayda geçer.
         </p>
-        <a href={HREF.admin} className="font-label-md text-label-md text-ai hover:underline">
+        <a href={HREF.admin} className="font-label-md text-label-md text-primary hover:underline">
           Değerlendirme panelini aç →
         </a>
       </section>

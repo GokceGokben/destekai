@@ -30,3 +30,26 @@ func TestCheckReturnable(t *testing.T) {
 		})
 	}
 }
+
+func TestPreparingEstimateSkipsWeekends(t *testing.T) {
+	tests := []struct {
+		name   string
+		placed time.Time
+		want   string
+	}{
+		// Monday plus five business days is the next Monday.
+		{"placed on a Monday", time.Date(2026, 11, 2, 10, 0, 0, 0, istanbul), "2026-11-09"},
+		// Friday: Mon, Tue, Wed, Thu, Fri of the next week.
+		{"placed on a Friday", time.Date(2026, 11, 6, 10, 0, 0, 0, istanbul), "2026-11-13"},
+		{"placed on a Saturday", time.Date(2026, 11, 7, 10, 0, 0, 0, istanbul), "2026-11-13"},
+		// 22:30 UTC on Sunday is already Monday in Istanbul.
+		{"late UTC evening counts as the next local day", time.Date(2026, 11, 8, 22, 30, 0, 0, time.UTC), "2026-11-16"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := preparingEstimate(tt.placed); got != tt.want {
+				t.Errorf("preparingEstimate(%v) = %s, want %s", tt.placed, got, tt.want)
+			}
+		})
+	}
+}

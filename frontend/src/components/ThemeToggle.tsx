@@ -12,7 +12,8 @@ export function ThemeToggle() {
       title={label}
       className="w-9 h-9 rounded-lg flex items-center justify-center bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"
     >
-      <Icon name={theme === "dark" ? "light_mode" : "dark_mode"} className="text-[20px]" />
+      {/* The icon shows the current theme; the label says what a click does. */}
+      <Icon name={theme === "dark" ? "dark_mode" : "light_mode"} className="text-[20px]" />
     </button>
   );
 }

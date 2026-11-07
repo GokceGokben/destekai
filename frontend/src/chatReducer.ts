@@ -14,7 +14,7 @@ export interface ChatMessage {
   time?: string;
 }
 
-export interface TraceEntry {
+interface TraceEntry {
   id: number;
   name: string;
   args: Record<string, unknown>;

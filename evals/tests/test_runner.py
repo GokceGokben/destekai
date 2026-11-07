@@ -11,7 +11,7 @@ from app.llm.base import TextDelta, Usage
 from evals.db import DbState
 from evals.judge import Judge
 from evals.llm import TextModel
-from evals.report import build_report, render_markdown, summarize, write_report
+from evals.report import build_report, carry_over, render_markdown, summarize, write_report
 from evals.runner import RateLimited, Runner
 from evals.scenario import Scenario
 
@@ -196,3 +196,17 @@ def test_an_interrupted_run_leaves_the_latest_report_alone(tmp_path):
         json.loads((tmp_path / "latest.json").read_text(encoding="utf-8"))["run_id"] == "previous"
     )
     assert (tmp_path / "interrupted.json").exists()
+
+
+def test_a_rewritten_report_keeps_its_date_and_earlier_tokens(tmp_path):
+    session = {"simulator_input": 10, "simulator_output": 2, "judge_input": 5, "judge_output": 1}
+    assert carry_over("new-run", session, tmp_path) == (None, session)
+
+    first = build_report([], "run", {"agent": "a", "simulator": "s", "judge": "j"}, session)
+    write_report(first, tmp_path, update_latest=False)
+    created_at, tokens = carry_over("run", dict.fromkeys(session, 0), tmp_path)
+    assert created_at == first["created_at"]
+    assert tokens == session
+
+    _, resumed = carry_over("run", session, tmp_path)
+    assert resumed["simulator_input"] == 20

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 // Hash routes: three screens do not need a router library, and a hash survives a reload
 // behind nginx's single index.html without any server rules.
-export type Route =
+type Route =
   | { page: "support" }
   | { page: "demo" }
   | { page: "admin" }

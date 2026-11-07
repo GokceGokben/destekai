@@ -34,10 +34,13 @@ export interface Order {
   return_status: "requested" | "approved" | "refunded" | null;
   carrier: string | null;
   tracking_number: string | null;
+  /** The shipment's estimate, or for an order still being prepared the shipping policy's
+   * latest date; null for a cancelled order. */
+  estimated_delivery: string | null;
   items: OrderItem[];
 }
 
-export interface ShipmentEvent {
+interface ShipmentEvent {
   status: string;
   location: string;
   description: string;

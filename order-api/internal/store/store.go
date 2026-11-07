@@ -46,16 +46,19 @@ type OrderItem struct {
 }
 
 type Order struct {
-	ID             string      `json:"id"`
-	Status         string      `json:"status"`
-	TotalKurus     int64       `json:"total_kurus"`
-	PlacedAt       time.Time   `json:"placed_at"`
-	DeliveredAt    *time.Time  `json:"delivered_at"`
-	ReturnID       *string     `json:"return_id"`
-	ReturnStatus   *string     `json:"return_status"`
-	Carrier        *string     `json:"carrier"`
-	TrackingNumber *string     `json:"tracking_number"`
-	Items          []OrderItem `json:"items"`
+	ID             string     `json:"id"`
+	Status         string     `json:"status"`
+	TotalKurus     int64      `json:"total_kurus"`
+	PlacedAt       time.Time  `json:"placed_at"`
+	DeliveredAt    *time.Time `json:"delivered_at"`
+	ReturnID       *string    `json:"return_id"`
+	ReturnStatus   *string    `json:"return_status"`
+	Carrier        *string    `json:"carrier"`
+	TrackingNumber *string    `json:"tracking_number"`
+	// The shipment's estimate once shipped; before that, the latest date the shipping
+	// policy promises. Null for a cancelled order.
+	EstimatedDelivery *string     `json:"estimated_delivery"`
+	Items             []OrderItem `json:"items"`
 }
 
 type ShipmentEvent struct {
@@ -253,7 +256,7 @@ func (s *Store) RecordAdminView(ctx context.Context, adminID, customerID string)
 // the partial unique index allows a single live one.
 const orderQuery = `
 	SELECT o.id, o.status, o.total_kurus, o.placed_at, o.delivered_at, r.id::text, r.status,
-		s.carrier, s.tracking_number
+		s.carrier, s.tracking_number, s.estimated_delivery::text
 	FROM orders o
 	LEFT JOIN returns r ON r.order_id = o.id AND r.status <> 'rejected'
 	LEFT JOIN shipments s ON s.order_id = o.id`
@@ -261,8 +264,32 @@ const orderQuery = `
 func scanOrder(row pgx.CollectableRow) (Order, error) {
 	var o Order
 	err := row.Scan(&o.ID, &o.Status, &o.TotalKurus, &o.PlacedAt, &o.DeliveredAt, &o.ReturnID,
-		&o.ReturnStatus, &o.Carrier, &o.TrackingNumber)
+		&o.ReturnStatus, &o.Carrier, &o.TrackingNumber, &o.EstimatedDelivery)
+	if err == nil && o.EstimatedDelivery == nil && o.Status == "preparing" {
+		estimate := preparingEstimate(o.PlacedAt)
+		o.EstimatedDelivery = &estimate
+	}
 	return o, err
+}
+
+// istanbul is Turkey's time, fixed at UTC+3 since 2016; the dates customers see are local.
+var istanbul = time.FixedZone("TRT", 3*60*60)
+
+// preparingBusinessDays is the shipping policy's latest promise (docs/policies/kargo.md):
+// up to 2 business days to hand the order to the carrier, then up to 3 to deliver it.
+const preparingBusinessDays = 5
+
+// preparingEstimate is the latest delivery date the policy promises for an order not yet
+// shipped. Weekends are skipped; public holidays are not known to the demo.
+func preparingEstimate(placedAt time.Time) string {
+	day := placedAt.In(istanbul)
+	for added := 0; added < preparingBusinessDays; {
+		day = day.AddDate(0, 0, 1)
+		if day.Weekday() != time.Saturday && day.Weekday() != time.Sunday {
+			added++
+		}
+	}
+	return day.Format(time.DateOnly)
 }
 
 // ListOrders returns the customer's most recent orders, newest first.

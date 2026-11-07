@@ -220,7 +220,8 @@
 
 .dark .bg-pattern-panel::before {
   background-image: url(/pattern-dark.png);
-  opacity: 1;
+  /* Full strength unless an element sets a lighter one, e.g. the order card's back header. */
+  opacity: var(--pattern-panel-dark-opacity, 1);
 }
 
 /* shadcn/ui expects this default; Tailwind 4 would otherwise draw borders in currentColor. */
@@ -239,6 +240,22 @@ body {
 
 ::-webkit-scrollbar {
   display: none;
+}
+
+/* A thin scrollbar where hidden overflow would otherwise look like cut-off text. */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.5) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: rgb(255 255 255 / 0.5);
 }
 
 .material-symbols-outlined {

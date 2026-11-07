@@ -43,10 +43,10 @@ export function ReplayScreen({ id, token, admin, onLogout }: Props) {
       <AppHeader active="Yönetici Değerlendirme & Test Paneli">
         <AdminBadge admin={admin} onLogout={onLogout} />
       </AppHeader>
-      <main className="w-full pt-16 bg-background min-h-screen">
+      <main className="w-full pt-16 bg-surface bg-pattern min-h-screen">
         <div className="mx-auto w-full max-w-7xl px-gutter-sm lg:px-margin py-space-lg flex flex-col gap-gutter">
           <nav className="flex items-center gap-space-xs font-label-sm text-label-sm text-on-surface-variant">
-            <a href={HREF.admin} className="inline-flex items-center gap-1 text-ai hover:underline">
+            <a href={HREF.admin} className="inline-flex items-center gap-1 text-primary hover:underline">
               <Icon name="arrow_back" className="text-[16px]" /> Test Listesine Dön
             </a>
             <span>/</span>

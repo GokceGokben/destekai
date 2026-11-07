@@ -34,7 +34,7 @@ class EvalSettings(BaseSettings):
     @field_validator("price_input_per_mtok", "price_output_per_mtok", mode="before")
     @classmethod
     def empty_is_unknown(cls, value: object) -> object:
-        # .env.example leaves the prices empty, which arrives as "".
+        # A key left empty in .env arrives as "".
         return None if value == "" else value
 
     @property

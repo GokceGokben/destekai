@@ -98,10 +98,11 @@ def build_report(
     eval_tokens: dict[str, int],
     price_input: float | None = None,
     price_output: float | None = None,
+    created_at: str | None = None,
 ) -> dict[str, Any]:
     return {
         "run_id": run_id,
-        "created_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "created_at": created_at or datetime.now().astimezone().isoformat(timespec="seconds"),
         "models": models,
         "summary": summarize(results, price_input, price_output),
         "categories": by_category(results),
@@ -170,6 +171,24 @@ def render_markdown(report: dict[str, Any]) -> str:
             f"| {verdict.replace('|', '/').replace(chr(10), ' ')} |"
         )
     return "\n".join(lines) + "\n"
+
+
+def carry_over(
+    run_id: str, session_tokens: dict[str, int], directory: Path = REPORT_DIR
+) -> tuple[str | None, dict[str, int]]:
+    """The date and evaluation tokens for a run's report, counting earlier sessions.
+
+    A run resumed over several days, or rebuilt with --report-only, writes its report again.
+    It keeps the date of its first report, and the simulator and judge tokens of earlier
+    sessions are added to this session's, which are zero when no model was called.
+    """
+    path = directory / f"{run_id}.json"
+    if not path.exists():
+        return None, session_tokens
+    previous = json.loads(path.read_text(encoding="utf-8"))
+    earlier = previous.get("eval_tokens", {})
+    tokens = {key: value + earlier.get(key, 0) for key, value in session_tokens.items()}
+    return previous.get("created_at"), tokens
 
 
 def write_report(

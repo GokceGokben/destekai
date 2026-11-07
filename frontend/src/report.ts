@@ -22,13 +22,13 @@ export interface EvalTurn {
   output_tokens: number;
 }
 
-export interface CheckResult {
+interface CheckResult {
   name: string;
   passed: boolean;
   detail: string;
 }
 
-export interface Verdict {
+interface Verdict {
   task_success: boolean;
   hallucination: boolean;
   policy_compliance: boolean;
@@ -47,7 +47,7 @@ export interface ScenarioResult {
   verdict: Verdict | null;
 }
 
-export interface Summary {
+interface Summary {
   scenarios: number;
   finished: number;
   agent_errors: number;
@@ -97,9 +97,9 @@ export const CATEGORY_LABELS: Record<string, string> = {
   out_of_scope: "Kapsam Dışı",
 };
 
-export const REPORT_URL = "/reports/latest.json";
+const REPORT_URL = "/reports/latest.json";
 
-export type ReportState =
+type ReportState =
   | { status: "loading" }
   | { status: "missing" }
   | { status: "ready"; report: EvalReport };
@@ -125,7 +125,18 @@ export function useReport(token: string, onUnauthorized: () => void): ReportStat
   return state;
 }
 
-/** For the download link, which cannot send a header: the report as a file URL. */
-export function reportDownloadUrl(report: EvalReport): string {
-  return URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: "application/json" }));
+/**
+ * Saves the report the panel already holds; a link to the report URL could not send the
+ * admin's token. The file URL is made on click and freed after the browser has taken it:
+ * one made ahead and freed in an effect's cleanup is already gone when React's development
+ * mode runs effects twice, and the browser then reports a network error.
+ */
+export function downloadReport(report: EvalReport) {
+  const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `destekai-eval-${report.run_id}.json`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }

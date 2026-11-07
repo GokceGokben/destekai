@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
+import { CARD_SHADOW, cn } from "@/lib/utils";
 
 import {
   CATEGORY_LABELS,
-  reportDownloadUrl,
+  downloadReport,
   succeeded,
   useReport,
   type EvalReport,
@@ -20,9 +20,9 @@ import { AppHeader } from "./AppHeader";
 import { MessageMarkdown } from "./ChatPanel";
 import { Icon } from "./Icon";
 
-export const RUN_COMMAND = "uv run --project agent-service python -m evals.run --subset 5";
+const RUN_COMMAND = "uv run --project agent-service python -m evals.run --subset 5";
 
-export function percent(value: number | null): string {
+function percent(value: number | null): string {
   return value === null ? "–" : `%${(value * 100).toFixed(1).replace(".", ",")}`;
 }
 
@@ -86,7 +86,7 @@ export function AdminScreen({ token, admin, onLogout }: Props) {
       <AppHeader active="Yönetici Değerlendirme & Test Paneli">
         <AdminBadge admin={admin} onLogout={onLogout} />
       </AppHeader>
-      <main className="w-full pt-16 bg-background min-h-screen">
+      <main className="w-full pt-16 bg-surface bg-pattern min-h-screen">
         <div className="mx-auto w-full max-w-7xl px-gutter-sm lg:px-margin py-space-lg flex flex-col gap-gutter">
           {state.status === "loading" && <LoadingState />}
           {state.status === "missing" && <MissingReport />}
@@ -103,9 +103,6 @@ function Dashboard({ report }: { report: EvalReport }) {
   const rows = filter === "all" ? report.results : failed;
   const [selectedId, setSelectedId] = useState(() => (failed[0] ?? report.results[0])?.id);
   const selected = report.results.find((r) => r.id === selectedId);
-  // The report URL needs the admin's token, which a plain link cannot send.
-  const downloadUrl = useMemo(() => reportDownloadUrl(report), [report]);
-  useEffect(() => () => URL.revokeObjectURL(downloadUrl), [downloadUrl]);
 
   return (
     <>
@@ -113,7 +110,7 @@ function Dashboard({ report }: { report: EvalReport }) {
       <MetricCards report={report} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-gutter items-start">
         <div className="lg:col-span-2 flex flex-col gap-gutter">
-          <Card className="gap-0 py-0 shadow-[0_10px_24px_-12px_rgba(70,50,30,0.28)] dark:shadow-[0_10px_24px_-10px_rgba(0,0,0,0.7)]">
+          <Card className={cn("gap-0 py-0", CARD_SHADOW)}>
             <div className="flex flex-wrap items-start justify-between gap-space-sm p-space-md border-b border-surface-variant/40">
               <div>
                 <h2 className="font-headline-sm text-headline-sm text-on-surface">
@@ -136,13 +133,13 @@ function Dashboard({ report }: { report: EvalReport }) {
                 <span className="w-2 h-2 rounded-full bg-secondary" />
                 {report.results.length - failed.length} / {report.results.length} senaryo başarılı
               </span>
-              <a
-                href={downloadUrl}
-                download={`destekai-eval-${report.run_id}.json`}
+              <button
+                type="button"
+                onClick={() => downloadReport(report)}
                 className="font-code-sm text-code-sm text-primary underline underline-offset-4"
               >
                 Raporu JSON Olarak İndir
-              </a>
+              </button>
             </div>
           </Card>
           <CategoryBreakdown report={report} />
@@ -244,7 +241,7 @@ function MetricCard({
   barTone?: string;
 }) {
   return (
-    <Card className="gap-space-sm py-space-md shadow-[0_10px_24px_-12px_rgba(70,50,30,0.28)] dark:shadow-[0_10px_24px_-10px_rgba(0,0,0,0.7)]">
+    <Card className={cn("gap-space-sm py-space-md", CARD_SHADOW)}>
       <CardContent className="flex flex-col gap-space-xs">
         <span className="font-label-md text-label-md text-on-surface-variant">{title}</span>
         <span className="font-headline-xl text-headline-xl text-on-surface">{value}</span>
@@ -450,7 +447,8 @@ function ScenarioPanel({ result }: { result: ScenarioResult }) {
             <p className="rounded-lg bg-card p-space-sm text-on-surface">
               <b>Müşteri:</b> {first.customer}
             </p>
-            <div className="rounded-lg bg-ai text-white p-space-sm line-clamp-4 [&_p]:inline [&_ul]:inline [&_li]:inline">
+            {/* The whole reply, scrolling inside a fixed height; the replay shows the conversation. */}
+            <div className="scrollbar-thin max-h-48 overflow-y-auto overscroll-contain rounded-lg bg-ai text-white p-space-sm">
               <MessageMarkdown text={first.reply || "(yanıt yok)"} />
             </div>
           </div>

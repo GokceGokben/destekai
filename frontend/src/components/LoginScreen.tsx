@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { AppHeader } from "./AppHeader";
 import { CustomerAvatar } from "./CustomerAvatar";
 import { Icon } from "./Icon";
-import { VIP_RING, VipPill } from "./OrdersPanel";
+import { VIP_RING, VipPill } from "./CustomerCard";
 
 
 // What the seed data sets up for each customer, so a tester can pick a scenario.
@@ -175,7 +175,7 @@ export function PageShell({
     <footer className="w-full bg-surface-container-low shadow-[0_-1px_6px_rgba(0,0,0,0.02)] py-space-lg">
       <div className="w-full px-margin flex flex-col md:flex-row items-center justify-between gap-space-md font-body-sm text-body-sm text-on-surface-variant">
         <div className="flex flex-wrap items-center gap-space-md">
-          <span className="font-medium text-on-surface">© 2025 DestekAI Bilişim A.Ş.</span>
+          <span className="font-medium text-on-surface">© {new Date().getFullYear()} DestekAI Bilişim A.Ş.</span>
           <span className="hidden md:inline text-outline-variant">|</span>
           <div className="flex items-center gap-space-xs">
             <span className="w-1.5 h-1.5 rounded-full bg-secondary" />

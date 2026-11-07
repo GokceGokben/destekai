@@ -14,7 +14,7 @@ import {
 import { CustomerAvatar } from "./CustomerAvatar";
 import { Icon } from "./Icon";
 import { Logo } from "./Logo";
-import { VIP_RING, VipPill } from "./OrdersPanel";
+import { VIP_RING, VipPill } from "./CustomerCard";
 
 const QUICK_REPLIES = [
   { emoji: "📦", text: "Siparişim nerede?" },
@@ -235,18 +235,6 @@ export function MobileSupport({
               ))}
             </div>
             <div className="bg-surface-container-lowest shadow-xl px-gutter-sm py-2 flex items-center gap-2">
-              <div className="flex items-center gap-0.5 text-outline">
-                {["add_circle", "photo_camera"].map((icon) => (
-                  <button
-                    key={icon}
-                    type="button"
-                    aria-label={icon === "add_circle" ? "Dosya Ekle" : "Fotoğraf Çek"}
-                    className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-surface-container transition-colors"
-                  >
-                    <Icon name={icon} className="text-[20px]" />
-                  </button>
-                ))}
-              </div>
               <div className="flex-1 min-w-0 bg-ai-container rounded-full px-3.5 py-2 flex items-center gap-2">
                 <input
                   type="text"
@@ -259,13 +247,6 @@ export function MobileSupport({
                   placeholder={handedOff ? HANDED_OFF_PLACEHOLDER : "Siparişiniz veya ürünler hakkında bir soru sorun..."}
                   className="w-full bg-transparent border-none outline-none font-body-sm text-[13px] text-on-surface placeholder:text-ai-outline"
                 />
-                <button
-                  type="button"
-                  aria-label="Sesli Mesaj"
-                  className="text-outline hover:text-on-surface transition-colors"
-                >
-                  <Icon name="mic" className="text-[18px]" />
-                </button>
               </div>
               <button
                 type="button"
@@ -286,7 +267,6 @@ export function MobileSupport({
         <div className="h-16 px-gutter-sm flex items-center justify-around">
           <NavButton icon="forum" label="Destek" active />
           <NavButton icon="local_shipping" label="Siparişler" onClick={onClose} />
-          <NavButton icon="monitoring" label="Metrikler" />
         </div>
       </nav>
     </div>

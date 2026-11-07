@@ -340,3 +340,27 @@
 - **Alternatives:** `'unsafe-inline'` for scripts; moving the theme script to a file.
 - **Why:** The CSP limits what an injected script could do. The inline script must run before the first paint, so it stays inline and is allowed by hash. Its hash covers exact bytes, and Git would check the file out with CRLF on Windows and LF elsewhere, so the line endings are fixed. nginx drops inherited `add_header` lines in a location that has its own, which would have left the report without headers.
 
+
+## 056: No buttons without an action behind them
+
+- **Decision:** Remove the buttons the design had but nothing implemented: live courier tracking, barcode download, the return guide, file, photo and voice input, the mobile "Metrikler" tab and the store selector's menu arrow. The phone-line button becomes "Canlı Temsilciye Bağlan", which asks the assistant for a person as the quick reply does, and is hidden in the read-only view. The back of an order card offers a tracking view built from the real shipment events.
+- **Alternatives:** Keep them as design placeholders; show a "coming soon" message.
+- **Why:** A button that does nothing looks broken to a customer and to anyone reviewing the code. The data for live courier location, barcodes and attachments does not exist, and inventing it would contradict the rule that the product never shows facts no system returned.
+
+## 057: Cost in the report from the agent model's price
+
+- **Decision:** `.env.example` sets the agent model's paid-tier price per million tokens, with the date it was checked and the date it changes. The report's cost covers the agent's tokens only. A report written again for the same run, by `--resume` or `--report-only`, keeps its first date and adds earlier sessions' simulator and judge tokens.
+- **Alternatives:** Leave the price empty; include the simulator and judge in the cost.
+- **Why:** The brief asks for cost per conversation, which is what a store would pay to run the agent; the simulator and judge are the cost of testing, reported separately as tokens. Before this change a rebuilt report showed the day it was rebuilt and lost the evaluation tokens.
+
+## 058: Services restart with Docker unless stopped on purpose
+
+- **Decision:** postgres, order-api, agent-service and frontend use `restart: unless-stopped`; the one-shot policy-indexer keeps no restart policy.
+- **Alternatives:** `on-failure`, as before; `always`.
+- **Why:** With `on-failure`, a clean shutdown of Docker (a reboot, quitting Docker Desktop) left the containers stopped, so after a restart only a service that had failed came back and logins failed. `unless-stopped` brings the stack back but respects `docker compose stop`. Docker ignores `depends_on` when it restarts containers itself, so a service that starts before its dependency exits and is started again.
+
+## 059: Fictional carriers, and an estimated delivery for every open order
+
+- **Decision:** The seed data and the shipping policy name made-up carriers (Martı, Yelken and Kumru Kargo); migration 00009 renames them in databases seeded earlier. Orders carry `estimated_delivery`: the shipment's estimate once shipped, and before that the latest date the shipping policy promises, the order date plus five business days. Cancelled orders have none.
+- **Alternatives:** Keep real carrier names; leave the estimate empty until an order ships; store an estimate per order in the seed.
+- **Why:** Real carriers' names are trademarks, and a demo should not suggest it works with them. A customer whose order is still being prepared asks when it will arrive; the policy already answers that, so the API derives the date from it rather than inventing one, and the agent sees the same date through its tools. Public holidays are not modelled, which the comment in the code says. Evaluation transcripts from earlier runs keep the old names, since they are a record of what the agent said.

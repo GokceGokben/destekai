@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import { listOrders, UnauthorizedError } from "../api";
+import { getShipment, listOrders, UnauthorizedError } from "../api";
 import { useGenie } from "../genie";
 import type { Admin, Customer, Order } from "../types";
 import { AdminBadge } from "./AdminHome";
@@ -10,7 +10,8 @@ import { AppHeader } from "./AppHeader";
 import { ChatPanel } from "./ChatPanel";
 import { Icon } from "./Icon";
 import { MobileSupport } from "./MobileSupport";
-import { CustomerCard, OrderList } from "./OrdersPanel";
+import { CustomerCard } from "./CustomerCard";
+import { OrderList } from "./OrdersPanel";
 
 interface Props {
   token: string;
@@ -39,6 +40,9 @@ export function SupportScreen({ token, customer, onLogout, viewer }: Props) {
       });
   }, [token, state.streaming, onLogout]);
 
+  // Stable across renders, so an open tracking view does not fetch again on every chat update.
+  const loadShipment = useCallback((orderId: string) => getShipment(token, orderId), [token]);
+
   function askAbout(orderId: string) {
     setDraft(`${orderId} numaralı siparişim hakkında bilgi almak istiyorum.`);
     setChatOpen(true);
@@ -49,14 +53,29 @@ export function SupportScreen({ token, customer, onLogout, viewer }: Props) {
     send("İade politikası");
   }
 
+  // The same words as the quick reply, so the agent's handoff rule treats it the same way.
+  function askHuman() {
+    setChatOpen(true);
+    send("Temsilciye bağlan");
+  }
+
   return (
     <>
       <Header customer={customer} onLogout={onLogout} viewer={viewer} />
       {viewer && <ReadOnlyBanner customer={customer} viewer={viewer} onBack={onLogout} />}
       <main className={`w-full bg-background min-h-screen ${viewer ? "pt-28" : "pt-16"}`}>
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-gutter px-gutter-sm py-space-lg lg:flex-row lg:items-start lg:px-margin">
-          <CustomerCard customer={customer} onAskPolicy={askPolicy} />
-          <OrderList orders={orders} onAsk={askAbout} onOpenChat={() => setChatOpen(true)} />
+          <CustomerCard
+            customer={customer}
+            onAskPolicy={askPolicy}
+            onAskHuman={viewer ? undefined : askHuman}
+          />
+          <OrderList
+            orders={orders}
+            onAsk={askAbout}
+            onOpenChat={() => setChatOpen(true)}
+            loadShipment={loadShipment}
+          />
         </div>
       </main>
       <Footer />
@@ -204,7 +223,7 @@ function Footer() {
       {/* Right padding keeps the text clear of the assistant button. */}
       <div className="w-full px-gutter-sm lg:pl-margin md:pr-56 flex flex-col md:flex-row items-center justify-between gap-1 md:gap-space-md text-on-surface-variant font-label-sm text-[12px]">
         <div className="flex items-center gap-space-sm">
-          <span>© 2025 DestekAI Bilişim A.Ş.</span>
+          <span>© {new Date().getFullYear()} DestekAI Bilişim A.Ş.</span>
           <span className="text-outline-variant">•</span>
           <span>Yapay Zekâ Destek Operasyonları</span>
         </div>

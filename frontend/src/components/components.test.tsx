@@ -5,7 +5,8 @@ import { initialChatState, type ChatMessage, type ChatState } from "../chatReduc
 import type { Customer, Order, Shipment } from "../types";
 import { CardView } from "./Cards";
 import { ChatPanel } from "./ChatPanel";
-import { CustomerCard, OrderList } from "./OrdersPanel";
+import { CustomerCard } from "./CustomerCard";
+import { OrderList } from "./OrdersPanel";
 
 const CUSTOMER: Customer = {
   id: "CUS-1001",
@@ -28,6 +29,7 @@ const ORDER: Order = {
   return_status: null,
   carrier: "Yelken Kargo",
   tracking_number: "AR123",
+  estimated_delivery: "2026-11-04",
   items: [
     { product_name: "Akıllı Saat", quantity: 1, unit_price_kurus: 349900, image_key: "smart-watch" },
   ],
@@ -184,6 +186,19 @@ test("the customer card shows real profile data", () => {
   expect(screen.getByText("• 2 Yıldır Üye")).toBeInTheDocument();
 });
 
+test("the customer card asks for a person, unless the view cannot hand off", async () => {
+  const onAskHuman = vi.fn();
+  const { unmount } = render(
+    <CustomerCard customer={CUSTOMER} onAskPolicy={vi.fn()} onAskHuman={onAskHuman} />,
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Canlı Temsilciye Bağlan" }));
+  expect(onAskHuman).toHaveBeenCalled();
+  unmount();
+
+  render(<CustomerCard customer={CUSTOMER} onAskPolicy={vi.fn()} />);
+  expect(screen.queryByRole("button", { name: "Canlı Temsilciye Bağlan" })).toBeNull();
+});
+
 test("an order card lists its items, total and tracking number", () => {
   render(<OrderList orders={[ORDER]} onAsk={vi.fn()} onOpenChat={vi.fn()} />);
   expect(screen.getByText("Akıllı Saat")).toBeInTheDocument();
@@ -207,18 +222,24 @@ test("the order list filters with Turkish casing and asks about one order", asyn
   expect(onAsk).toHaveBeenCalledWith("DA-100003");
 });
 
+// An order card is found by its details button, which each card has once; the order
+// number itself appears on both faces of the card.
+const card = (id: string) => screen.getByRole("button", { name: `${id} siparişinin detayları` });
+const queryCard = (id: string) =>
+  screen.queryByRole("button", { name: `${id} siparişinin detayları` });
+
 test("searching an order number works with or without the leading #", async () => {
   const other = { ...ORDER, id: "DA-100007" };
   render(<OrderList orders={[ORDER, other]} onAsk={vi.fn()} onOpenChat={vi.fn()} />);
   const box = screen.getByRole("textbox");
 
   await userEvent.type(box, "#DA-100007");
-  expect(screen.getByText("#DA-100007")).toBeInTheDocument();
-  expect(screen.queryByText("#DA-100002")).not.toBeInTheDocument();
+  expect(card("DA-100007")).toBeInTheDocument();
+  expect(queryCard("DA-100002")).not.toBeInTheDocument();
 
   await userEvent.clear(box);
   await userEvent.type(box, "100002");
-  expect(screen.getByText("#DA-100002")).toBeInTheDocument();
+  expect(card("DA-100002")).toBeInTheDocument();
 });
 
 test("the filter tabs split orders by status and count them", async () => {
@@ -228,12 +249,89 @@ test("the filter tabs split orders by status and count them", async () => {
 
   expect(screen.getByRole("tab", { name: /Devam eden/ })).toHaveTextContent("1");
   await userEvent.click(screen.getByRole("tab", { name: /Teslim edilen/ }));
-  expect(screen.getByText("#DA-100001")).toBeInTheDocument();
-  expect(screen.queryByText("#DA-100002")).not.toBeInTheDocument();
-  expect(screen.queryByText("#DA-100005")).not.toBeInTheDocument();
+  expect(card("DA-100001")).toBeInTheDocument();
+  expect(queryCard("DA-100002")).not.toBeInTheDocument();
+  expect(queryCard("DA-100005")).not.toBeInTheDocument();
 
   await userEvent.click(screen.getByRole("tab", { name: /İade/ }));
-  expect(screen.getByText("#DA-100005")).toBeInTheDocument();
+  expect(card("DA-100005")).toBeInTheDocument();
+});
+
+test("a cancelled order does not say it will be shipped", () => {
+  render(
+    <OrderList
+      orders={[{ ...ORDER, status: "cancelled", carrier: null, tracking_number: null }]}
+      onAsk={vi.fn()}
+      onOpenChat={vi.fn()}
+    />,
+  );
+  expect(screen.getAllByText("Sipariş iptal edildi")).not.toHaveLength(0);
+  expect(screen.queryByText("Henüz kargoya verilmedi")).toBeNull();
+});
+
+test("details turn the card over and back, moving focus with it", async () => {
+  render(<OrderList orders={[ORDER]} onAsk={vi.fn()} onOpenChat={vi.fn()} />);
+  const back = screen.getByRole("button", { name: /Geri dön/ });
+  // The face turned away cannot be reached by keyboard.
+  expect(back.closest("[inert]")).not.toBeNull();
+
+  await userEvent.click(card("DA-100002"));
+  await vi.waitFor(() => expect(back).toHaveFocus());
+  expect(back.closest("[inert]")).toBeNull();
+  expect(screen.getByText("Takip numarası").nextElementSibling).toHaveTextContent("AR123");
+  expect(card("DA-100002").closest("[inert]")).not.toBeNull();
+
+  await userEvent.click(back);
+  await vi.waitFor(() => expect(card("DA-100002")).toHaveFocus());
+});
+
+test("the back of a shipped order shows where the parcel is, fetched only when asked", async () => {
+  const loadShipment = vi.fn().mockResolvedValue(SHIPMENT);
+  render(
+    <OrderList orders={[ORDER]} onAsk={vi.fn()} onOpenChat={vi.fn()} loadShipment={loadShipment} />,
+  );
+  await userEvent.click(card("DA-100002"));
+  expect(loadShipment).not.toHaveBeenCalled();
+
+  await userEvent.click(screen.getByRole("button", { name: /Kargom nerede/ }));
+  expect(loadShipment).toHaveBeenCalledWith("DA-100002");
+  expect(await screen.findByText("Transfer merkezinde")).toBeInTheDocument();
+  expect(screen.getByText("Yolda / Aktarmada").closest("li")!.querySelector("[aria-current]"))
+    .toHaveAttribute("aria-current", "step");
+
+  await userEvent.click(screen.getByRole("button", { name: /Detaylar$/ }));
+  expect(screen.getByText("Takip numarası")).toBeInTheDocument();
+});
+
+test("a preparing order's details show its estimated delivery", () => {
+  render(
+    <OrderList
+      orders={[
+        {
+          ...ORDER,
+          status: "preparing",
+          carrier: null,
+          tracking_number: null,
+          estimated_delivery: "2026-11-13",
+        },
+      ]}
+      onAsk={vi.fn()}
+      onOpenChat={vi.fn()}
+    />,
+  );
+  expect(screen.getByText("Tahmini teslim").nextElementSibling).toHaveTextContent("13 Kasım 2026");
+});
+
+test("an order without a tracking number offers no tracking", async () => {
+  render(
+    <OrderList
+      orders={[{ ...ORDER, status: "preparing", carrier: null, tracking_number: null }]}
+      onAsk={vi.fn()}
+      onOpenChat={vi.fn()}
+      loadShipment={vi.fn()}
+    />,
+  );
+  expect(screen.queryByRole("button", { name: /Kargom nerede/, hidden: true })).toBeNull();
 });
 
 test("loading orders shows skeletons instead of an empty list", () => {

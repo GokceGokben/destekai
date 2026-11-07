@@ -121,14 +121,84 @@ const MOBILE_STATUS: Record<Shipment["status"], string> = {
   delivered: "Teslim Edildi",
 };
 
-function latestEvent(shipment: Shipment) {
+export function latestEvent(shipment: Shipment) {
   return shipment.events[shipment.events.length - 1];
 }
 
-function ShipmentCard({ shipment }: { shipment: Shipment }) {
+/**
+ * The four shipping stages with the current one highlighted. Each stage takes a quarter of the
+ * width, so the line between the first and last centres runs from 12.5% to 87.5%.
+ */
+export function ShipmentProgress({ shipment }: { shipment: Shipment }) {
   const active = ACTIVE_STAGE[shipment.status];
   const latest = latestEvent(shipment);
-  const progress = (Math.min(active, 3) / 3) * 76;
+  const progress = (Math.min(active, 3) / 3) * 75;
+  return (
+    <ol className="relative flex items-start justify-between w-full pt-1 pb-2">
+      <span
+        aria-hidden="true"
+        className="absolute left-[12.5%] right-[12.5%] top-4 h-1 bg-surface-container-high rounded-full"
+      />
+      <span
+        aria-hidden="true"
+        className="absolute left-[12.5%] top-4 h-1 rounded-full bg-secondary"
+        style={{ width: `${progress}%` }}
+      />
+      {STAGES.map((stage, index) => {
+        const when = shipment.events.find((event) => event.status === stage.event);
+        const state = index < active ? "done" : index === active ? "active" : "pending";
+        return (
+          <li key={stage.label} className="flex flex-1 flex-col items-center z-10">
+            <span
+              aria-current={state === "active" ? "step" : undefined}
+              className={`w-8 h-8 rounded-full flex items-center justify-center ring-4 ${
+                state === "done"
+                  ? "bg-secondary text-on-secondary shadow-sm ring-surface-container-lowest"
+                  : state === "active"
+                    ? "bg-primary-container text-on-primary ring-primary/20 shadow-md animate-pulse"
+                    : "bg-surface-container-high text-on-surface-variant ring-surface-container-lowest"
+              }`}
+            >
+              <Icon
+                name={state === "done" ? "check" : stage.icon}
+                className={state === "active" ? "text-[18px]" : "text-[16px]"}
+              />
+            </span>
+            <span className="flex flex-col items-center mt-2.5 text-center">
+              <span
+                className={`font-label-sm text-[11px] ${
+                  state === "active"
+                    ? "font-bold text-primary"
+                    : state === "done"
+                      ? "font-semibold text-on-surface"
+                      : "text-on-surface-variant"
+                }`}
+              >
+                {stage.label}
+              </span>
+              <span
+                className={`font-code-sm text-[10px] mt-0.5 ${
+                  state === "active" ? "font-medium text-primary" : "text-on-surface-variant"
+                }`}
+              >
+                {state === "pending"
+                  ? "Bekleniyor"
+                  : state === "active"
+                    ? (latest?.location ?? "")
+                    : when
+                      ? formatDateTime(when.occurred_at)
+                      : ""}
+              </span>
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function ShipmentCard({ shipment }: { shipment: Shipment }) {
+  const latest = latestEvent(shipment);
 
   return (
     <div className="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex flex-col gap-space-md w-full border border-surface-variant/40">
@@ -155,66 +225,7 @@ function ShipmentCard({ shipment }: { shipment: Shipment }) {
       </div>
 
       <div className="py-space-sm px-space-xs">
-        <ol className="relative flex items-start justify-between w-full pt-1 pb-2">
-          <span
-            aria-hidden="true"
-            className="absolute left-[12%] right-[12%] top-4 h-1 bg-surface-container-high rounded-full"
-          />
-          <span
-            aria-hidden="true"
-            className="absolute left-[12%] top-4 h-1 rounded-full bg-secondary"
-            style={{ width: `${progress}%` }}
-          />
-          {STAGES.map((stage, index) => {
-            const when = shipment.events.find((event) => event.status === stage.event);
-            const state = index < active ? "done" : index === active ? "active" : "pending";
-            return (
-              <li key={stage.label} className="flex flex-col items-center z-10 w-28">
-                <span
-                  aria-current={state === "active" ? "step" : undefined}
-                  className={`w-8 h-8 rounded-full flex items-center justify-center ring-4 ${
-                    state === "done"
-                      ? "bg-secondary text-on-secondary shadow-sm ring-surface-container-lowest"
-                      : state === "active"
-                        ? "bg-primary-container text-on-primary ring-primary/20 shadow-md animate-pulse"
-                        : "bg-surface-container-high text-on-surface-variant ring-surface-container-lowest"
-                  }`}
-                >
-                  <Icon
-                    name={state === "done" ? "check" : stage.icon}
-                    className={state === "active" ? "text-[18px]" : "text-[16px]"}
-                  />
-                </span>
-                <span className="flex flex-col items-center mt-2.5 text-center">
-                  <span
-                    className={`font-label-sm text-[11px] ${
-                      state === "active"
-                        ? "font-bold text-primary"
-                        : state === "done"
-                          ? "font-semibold text-on-surface"
-                          : "text-on-surface-variant"
-                    }`}
-                  >
-                    {stage.label}
-                  </span>
-                  <span
-                    className={`font-code-sm text-[10px] mt-0.5 ${
-                      state === "active" ? "font-medium text-primary" : "text-on-surface-variant"
-                    }`}
-                  >
-                    {state === "pending"
-                      ? "Bekleniyor"
-                      : state === "active"
-                        ? (latest?.location ?? "")
-                        : when
-                          ? formatDateTime(when.occurred_at)
-                          : ""}
-                  </span>
-                </span>
-              </li>
-            );
-          })}
-        </ol>
+        <ShipmentProgress shipment={shipment} />
       </div>
 
       <div className="flex items-center justify-between gap-space-sm bg-surface-container-low rounded-lg p-space-sm">
@@ -227,13 +238,6 @@ function ShipmentCard({ shipment }: { shipment: Shipment }) {
             </span>
           )}
         </div>
-        <button
-          type="button"
-          className="px-space-md py-1.5 rounded-lg bg-primary-container text-on-primary hover:bg-primary font-label-sm text-label-sm font-semibold flex items-center gap-1.5 shadow-sm transition-all shrink-0"
-        >
-          <span>Kuryeyi Canlı Takip Et</span>
-          <Icon name="open_in_new" className="text-[16px]" />
-        </button>
       </div>
     </div>
   );
@@ -280,13 +284,6 @@ function ReturnCard({ request }: { request: ReturnRequest }) {
             label="Kodu Kopyala"
             className="px-3 py-1.5 rounded-lg bg-surface-container-lowest hover:bg-surface-container text-on-surface font-label-sm text-label-sm font-semibold flex items-center gap-1 shadow-sm transition-colors"
           />
-          <button
-            type="button"
-            className="px-3 py-1.5 rounded-lg bg-primary-container hover:bg-primary text-on-primary font-label-sm text-label-sm font-semibold flex items-center gap-1 shadow-sm transition-colors"
-          >
-            <Icon name="download" className="text-[16px]" />
-            <span>Barkod İndir</span>
-          </button>
         </div>
       </div>
     </div>
@@ -378,13 +375,6 @@ function MobileShipmentCard({ shipment }: { shipment: Shipment }) {
           {latest.description} • {latest.location}
         </p>
       )}
-      <button
-        type="button"
-        className="w-full py-2.5 px-space-md rounded-lg bg-primary text-on-primary font-headline-sm text-[13px] flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.99] transition-transform"
-      >
-        <Icon name="location_on" className="text-[18px]" />
-        Kuryeyi Canlı Takip Et
-      </button>
     </div>
   );
 }
@@ -421,22 +411,6 @@ function MobileReturnCard({ request }: { request: ReturnRequest }) {
             className="flex items-center gap-1 px-2 py-1 rounded bg-surface-container-high text-on-surface font-label-sm text-[11px] hover:bg-surface-variant transition-colors"
           />
         </div>
-      </div>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          className="flex-1 py-2 px-space-sm rounded-lg bg-surface-container-high text-on-surface font-headline-sm text-[12px] flex items-center justify-center gap-1 hover:bg-surface-variant transition-colors"
-        >
-          <Icon name="qr_code_2" className="text-[16px]" />
-          Barkod İndir
-        </button>
-        <button
-          type="button"
-          className="flex-1 py-2 px-space-sm rounded-lg bg-surface-container-high text-on-surface font-headline-sm text-[12px] flex items-center justify-center gap-1 hover:bg-surface-variant transition-colors"
-        >
-          <Icon name="help" className="text-[16px]" />
-          İade Rehberi
-        </button>
       </div>
     </div>
   );

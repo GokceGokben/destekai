@@ -237,6 +237,24 @@ func TestGetOrder(t *testing.T) {
 	}
 }
 
+func TestOrdersCarryAnEstimatedDeliveryUntilCancelled(t *testing.T) {
+	h := newServer(t)
+	estimate := func(customerID, orderID string) *string {
+		return decode[store.Order](t, request(t, h, http.MethodGet, "/v1/orders/"+orderID, customerID, "")).EstimatedDelivery
+	}
+
+	// Preparing: the policy's latest date. Shipped: the shipment's own estimate.
+	if e := estimate("CUS-1001", "DA-100003"); e == nil {
+		t.Error("a preparing order has no estimated delivery")
+	}
+	if e := estimate("CUS-1001", "DA-100002"); e == nil {
+		t.Error("a shipped order has no estimated delivery")
+	}
+	if e := estimate("CUS-1002", "DA-100006"); e != nil {
+		t.Errorf("a cancelled order has an estimated delivery: %s", *e)
+	}
+}
+
 func TestGetOrderShowsLiveReturnButNotRejectedOne(t *testing.T) {
 	h := newServer(t)
 

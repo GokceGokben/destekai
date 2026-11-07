@@ -11,6 +11,7 @@ const ORDER: Order = {
   return_status: null,
   carrier: null,
   tracking_number: null,
+  estimated_delivery: null,
   items: [{ product_name: "Kulaklık", quantity: 1, unit_price_kurus: 239700, image_key: null }],
 };
 

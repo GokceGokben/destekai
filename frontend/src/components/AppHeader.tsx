@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { cn } from "@/lib/utils";
+import { CARD_SHADOW, cn } from "@/lib/utils";
 
 import { HREF } from "../route";
 
@@ -13,7 +13,7 @@ const NAV_ITEMS = [
   { label: "Yönetici Değerlendirme & Test Paneli", href: HREF.admin },
 ] as const;
 
-export type NavItem = (typeof NAV_ITEMS)[number]["label"];
+type NavItem = (typeof NAV_ITEMS)[number]["label"];
 
 interface Props {
   /** The page being shown; none on the login screen. */
@@ -25,7 +25,12 @@ interface Props {
 /** One header for every page, so the logo, menu and controls never move between pages. */
 export function AppHeader({ active, children }: Props) {
   return (
-    <header className="fixed top-0 left-0 right-0 z-40 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_10px_24px_-12px_rgba(70,50,30,0.28)] dark:shadow-[0_10px_24px_-10px_rgba(0,0,0,0.7)]">
+    <header
+      className={cn(
+        "fixed top-0 left-0 right-0 z-40 bg-surface-container-lowest/90 backdrop-blur-xl",
+        CARD_SHADOW,
+      )}
+    >
       <div className="h-16 w-full px-gutter-sm lg:px-margin flex items-center justify-between gap-space-md">
         <div className="flex items-center gap-space-lg">
           <Logo />
@@ -54,7 +59,6 @@ export function AppHeader({ active, children }: Props) {
             <span className="font-label-sm text-label-sm text-on-surface font-semibold">
               ModaTrend Mağazası #4182
             </span>
-            <Icon name="expand_more" className="text-outline text-[16px]" />
           </div>
           <ThemeToggle />
           {children}

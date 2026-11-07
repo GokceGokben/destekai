@@ -12,7 +12,7 @@ export const MAX_MESSAGE_LENGTH = 2000;
 export const HANDED_OFF_PLACEHOLDER = "Bir müşteri temsilcisine aktarıldınız. Yeni bir konuşma başlatabilirsiniz.";
 
 // Requests that change something; an admin's read-only view does not offer them.
-export const ACTION_REPLIES = new Set(["İade talebi oluştur", "Temsilciye bağlan", "Adres değişikliği"]);
+const ACTION_REPLIES = new Set(["İade talebi oluştur", "Temsilciye bağlan", "Adres değişikliği"]);
 
 export function forViewer<T extends { text: string }>(replies: T[], readOnly: boolean): T[] {
   return readOnly ? replies.filter((reply) => !ACTION_REPLIES.has(reply.text)) : replies;
@@ -198,24 +198,7 @@ export function ChatPanel({
             placeholder={handedOff ? HANDED_OFF_PLACEHOLDER : "Siparişiniz, iade veya ürünler hakkında bir soru sorun..."}
             className="w-full bg-transparent text-on-surface font-body-md text-body-md placeholder:text-ai-muted focus:outline-none resize-none px-2 pt-1 pb-2 border-0"
           />
-          <div className="flex items-center justify-between pt-1">
-            <div className="flex items-center gap-1">
-              {[
-                ["attach_file", "Görsel / Belge Ekle"],
-                ["photo_camera", "Hasar / İade Fotoğrafı Çek"],
-                ["mic", "Sesli Mesaj"],
-              ].map(([icon, title]) => (
-                <button
-                  key={icon}
-                  type="button"
-                  title={title}
-                  aria-label={title}
-                  className="p-2 rounded-lg text-ai-muted hover:text-ai-deep hover:bg-ai-container transition-colors"
-                >
-                  <Icon name={icon} className="text-[20px]" />
-                </button>
-              ))}
-            </div>
+          <div className="flex items-center justify-end pt-1">
             <div className="flex items-center gap-space-sm">
               <span className="hidden sm:inline font-code-sm text-[11px] text-ai-muted">
                 Enter: Gönder

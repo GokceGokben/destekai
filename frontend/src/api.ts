@@ -1,5 +1,5 @@
 import { readEvents } from "./sse";
-import type { Admin, ChatEvent, Customer, Order } from "./types";
+import type { Admin, ChatEvent, Customer, Order, Shipment } from "./types";
 
 export class UnauthorizedError extends Error {}
 
@@ -87,6 +87,14 @@ export async function listOrders(token: string): Promise<Order[]> {
     headers: { Authorization: `Bearer ${token}` },
   });
   return (await getJson<{ orders: Order[] }>(response)).orders;
+}
+
+/** The order API answers 404 for an order that is not the caller's, as for one that is missing. */
+export async function getShipment(token: string, orderId: string): Promise<Shipment> {
+  const response = await fetch(`/api/order/v1/orders/${orderId}/shipment`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return getJson<Shipment>(response);
 }
 
 export async function* streamChat(
