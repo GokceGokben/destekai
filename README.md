@@ -181,3 +181,8 @@ Every significant design choice, with its alternatives and reasons, is recorded 
 - **Frustration detection:** a Turkish word list. It misses sarcasm and unusual phrasing.
 - **Invented numbers:** flagged after the reply has streamed, not blocked before it.
 - **Full evaluation:** the free tier's 20 requests per model per day stretch a 56-scenario run over several days.
+
+## License
+
+© 2026 GokceGokben. All rights reserved. The code is public so that it can be reviewed;
+please ask before reusing any part of it.
