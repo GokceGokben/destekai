@@ -14,7 +14,6 @@ import {
   type ScenarioResult,
 } from "../report";
 import { HREF } from "../route";
-import type { Admin } from "../types";
 import { AdminBadge } from "./AdminHome";
 import { AppHeader } from "./AppHeader";
 import { MessageMarkdown } from "./ChatPanel";
@@ -75,16 +74,15 @@ export function Badge({
 
 interface Props {
   token: string;
-  admin: Admin;
   onLogout: () => void;
 }
 
-export function AdminScreen({ token, admin, onLogout }: Props) {
+export function AdminScreen({ token, onLogout }: Props) {
   const state = useReport(token, onLogout);
   return (
     <>
       <AppHeader active="Yönetici Değerlendirme & Test Paneli">
-        <AdminBadge admin={admin} onLogout={onLogout} />
+        <AdminBadge onLogout={onLogout} />
       </AppHeader>
       <main className="w-full pt-16 bg-surface bg-pattern min-h-screen">
         <div className="mx-auto w-full max-w-7xl px-gutter-sm lg:px-margin py-space-lg flex flex-col gap-gutter">

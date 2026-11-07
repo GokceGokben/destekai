@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 
 import { CATEGORY_LABELS, useReport, type EvalTurn, type ScenarioResult, type ToolTrace } from "../report";
 import { HREF } from "../route";
-import type { Admin } from "../types";
 import { AdminBadge } from "./AdminHome";
 import {
   CheckList,
@@ -29,11 +28,10 @@ const END_LABELS: Record<ScenarioResult["ended_by"], string> = {
 interface Props {
   id: string;
   token: string;
-  admin: Admin;
   onLogout: () => void;
 }
 
-export function ReplayScreen({ id, token, admin, onLogout }: Props) {
+export function ReplayScreen({ id, token, onLogout }: Props) {
   const state = useReport(token, onLogout);
   const result = state.status === "ready" ? state.report.results.find((r) => r.id === id) : undefined;
   const agentModel = state.status === "ready" ? state.report.models.agent : "";
@@ -41,7 +39,7 @@ export function ReplayScreen({ id, token, admin, onLogout }: Props) {
   return (
     <>
       <AppHeader active="Yönetici Değerlendirme & Test Paneli">
-        <AdminBadge admin={admin} onLogout={onLogout} />
+        <AdminBadge onLogout={onLogout} />
       </AppHeader>
       <main className="w-full pt-16 bg-surface bg-pattern min-h-screen">
         <div className="mx-auto w-full max-w-7xl px-gutter-sm lg:px-margin py-space-lg flex flex-col gap-gutter">

@@ -15,8 +15,9 @@ INSERT INTO customers (id, full_name, email, phone, city, tier, loyalty_points, 
     ('CUS-1009', 'Deniz Aydın',  'deniz.aydin@example.com',  '+90 555 000 00 09', 'Gaziantep', 'standard',  260, CURRENT_DATE - interval '1 year'),
     ('CUS-1010', 'Ece Polat',    'ece.polat@example.com',    '+90 555 000 00 10', 'Konya',     'standard',  690, CURRENT_DATE - interval '3 years');
 
--- Demo passwords for local use: DestekAI-demo-2026 for every customer and
--- DestekAI-admin-2026 for the admin. Only bcrypt hashes (cost 12) are stored.
+-- Demo accounts for local use: every customer signs in with their email above and
+-- DestekAI-demo-2026; the admin with admin@destekai.local and DestekAI-admin-2026.
+-- Only bcrypt hashes (cost 12) are stored.
 UPDATE customers SET password_hash = '$2a$12$5EDzR2RJstDs2HuyD1A9oefIdev7TmnqZEtzIukWHwNFZUjAtdOd.';
 
 INSERT INTO admins (id, full_name, email, password_hash) VALUES

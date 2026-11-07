@@ -62,7 +62,7 @@ export function SupportScreen({ token, customer, onLogout, viewer }: Props) {
   return (
     <>
       <Header customer={customer} onLogout={onLogout} viewer={viewer} />
-      {viewer && <ReadOnlyBanner customer={customer} viewer={viewer} onBack={onLogout} />}
+      {viewer && <ReadOnlyBanner customer={customer} onBack={onLogout} />}
       <main className={`w-full bg-background min-h-screen ${viewer ? "pt-28" : "pt-16"}`}>
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-gutter px-gutter-sm py-space-lg lg:flex-row lg:items-start lg:px-margin">
           <CustomerCard
@@ -146,15 +146,7 @@ export function SupportScreen({ token, customer, onLogout, viewer }: Props) {
 }
 
 /** Fixed under the header: an admin must never mistake the view for the customer's own. */
-function ReadOnlyBanner({
-  customer,
-  viewer,
-  onBack,
-}: {
-  customer: Customer;
-  viewer: Admin;
-  onBack: () => void;
-}) {
+function ReadOnlyBanner({ customer, onBack }: { customer: Customer; onBack: () => void }) {
   return (
     <div
       role="status"
@@ -162,7 +154,7 @@ function ReadOnlyBanner({
     >
       <span className="flex items-center gap-1.5 font-label-md text-label-md">
         <Icon name="visibility" className="text-[18px]" />
-        Yönetici görünümü: <b>{customer.full_name}</b> — salt okunur ({viewer.full_name})
+        Yönetici görünümü: <b>{customer.full_name}</b> — salt okunur
       </span>
       <button
         type="button"
@@ -187,7 +179,7 @@ function Header({
   if (viewer) {
     return (
       <AppHeader active="Müşteri Desteği">
-        <AdminBadge admin={viewer} onLogout={onLogout} />
+        <AdminBadge onLogout={onLogout} />
       </AppHeader>
     );
   }

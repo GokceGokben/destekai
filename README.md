@@ -71,7 +71,7 @@ Open <http://localhost:3000>.
 
 ### Demo accounts
 
-- **Passwords:** these are demo accounts. Only bcrypt hashes are stored, in `order-api/internal/seed/seed.sql`.
+- **Passwords:** the demo accounts and their password are in the comment at the top of the admin block in `order-api/internal/seed/seed.sql`. Only bcrypt hashes are stored.
 - **Demo login:** with `DEV_LOGIN=true`, the default in compose, the login screen also offers a password-free quick login per customer. Set it to `false` and only real logins remain.
 - **Admin view:** an admin sees every customer and opens their panel **read-only**. The server refuses writes from that view, and every view is recorded in an audit table.
 

@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 
 import { listAdminCustomers, UnauthorizedError } from "../api";
 import { HREF } from "../route";
-import type { Admin, Customer } from "../types";
+import type { Customer } from "../types";
 import { Icon } from "./Icon";
 import { CustomerGrid, PageShell } from "./LoginScreen";
 
 /** Who is signed in as admin, with a way out. Shown on every admin page. */
-export function AdminBadge({ admin, onLogout }: { admin: Admin; onLogout: () => void }) {
+export function AdminBadge({ onLogout }: { onLogout: () => void }) {
   return (
     <button
       type="button"
@@ -19,8 +19,8 @@ export function AdminBadge({ admin, onLogout }: { admin: Admin; onLogout: () => 
         <Icon name="admin_panel_settings" className="text-[18px]" />
       </span>
       <span className="hidden xl:flex flex-col text-left leading-tight">
-        <span className="font-label-sm text-xs font-semibold text-on-surface">{admin.full_name}</span>
-        <span className="font-code-sm text-[10px] text-on-surface-variant">Yönetici • Çıkış yap</span>
+        <span className="font-label-sm text-xs font-semibold text-on-surface">Yönetici</span>
+        <span className="font-code-sm text-[10px] text-on-surface-variant">Çıkış yap</span>
       </span>
     </button>
   );
@@ -28,13 +28,12 @@ export function AdminBadge({ admin, onLogout }: { admin: Admin; onLogout: () => 
 
 interface Props {
   token: string;
-  admin: Admin;
   onOpen: (customerId: string) => Promise<void>;
   onLogout: () => void;
 }
 
 /** An admin's start page: every customer, each opened read-only. */
-export function AdminHome({ token, admin, onOpen, onLogout }: Props) {
+export function AdminHome({ token, onOpen, onLogout }: Props) {
   const [customers, setCustomers] = useState<Customer[] | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -45,7 +44,7 @@ export function AdminHome({ token, admin, onOpen, onLogout }: Props) {
   }, [token, onLogout]);
 
   return (
-    <PageShell aside={<AdminBadge admin={admin} onLogout={onLogout} />}>
+    <PageShell aside={<AdminBadge onLogout={onLogout} />}>
       <section className="relative text-center max-w-2xl flex flex-col items-center gap-space-sm">
         <span className="inline-flex items-center gap-1.5 px-space-md py-1 rounded-full bg-surface-container-high font-code-sm text-code-sm text-primary">
           <Icon name="visibility" className="text-[16px]" /> SALT OKUNUR GÖRÜNÜM

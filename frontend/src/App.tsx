@@ -49,9 +49,9 @@ export function App() {
       return <LoginScreen initialTab="admin" onLogin={signIn} />;
     }
     return route.page === "admin" ? (
-      <AdminScreen token={admin.token} admin={admin.admin} onLogout={logout} />
+      <AdminScreen token={admin.token} onLogout={logout} />
     ) : (
-      <ReplayScreen id={route.id} token={admin.token} admin={admin.admin} onLogout={logout} />
+      <ReplayScreen id={route.id} token={admin.token} onLogout={logout} />
     );
   }
 
@@ -84,7 +84,6 @@ export function App() {
     return (
       <AdminHome
         token={session.token}
-        admin={session.admin}
         onOpen={async (id) => setView(await openCustomerView(session.token, id))}
         onLogout={logout}
       />

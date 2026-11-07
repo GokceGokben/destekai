@@ -99,7 +99,6 @@ function serve(report: EvalReport | null) {
 
 const ADMIN_PROPS = {
   token: "admin-token",
-  admin: { id: "ADM-1001", full_name: "Yönetici", email: "admin@destekai.local" },
   onLogout: () => {},
 };
 
